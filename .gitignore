@@ -1,0 +1,54 @@
+# Java / Maven
+target/
+*.jar
+*.war
+*.class
+hs_err_pid*
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE — IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# IDE — VS Code
+.vscode/
+
+# IDE — Eclipse
+.classpath
+.project
+.settings/
+.factorypath
+
+# Node / Vite
+node_modules/
+dist/
+dist-ssr/
+.parcel-cache/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Misc
+*.pid
+*.swp
+*~
