@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(Copy-Item *)",
-      "PowerShell(Copy-Item *)"
+      "PowerShell(Copy-Item *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\usmohammed\\\\OneDrive - Deloitte \\(O365D\\)\\\\Documents\\\\FP3\\\\finance-tracker\" -Recurse -File)",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }
