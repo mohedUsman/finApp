@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { LayoutDashboard, Receipt, Repeat, Calendar, Wallet, Tags, LogOut } from 'lucide-react'
+import { LayoutDashboard, Receipt, Repeat, Calendar, Wallet, Tags, LogOut, Trash2 } from 'lucide-react'
+import DeleteAccountModal from './DeleteAccountModal'
 
 const nav = [
   { to: '/dashboard',    label: 'Dashboard',    Icon: LayoutDashboard },
@@ -13,6 +15,7 @@ const nav = [
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   return (
     <aside className="w-56 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 h-screen sticky top-0">
@@ -61,7 +64,16 @@ export default function Sidebar() {
           <LogOut className="w-4 h-4 shrink-0" />
           Logout
         </button>
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-slate-600 hover:text-rose-400 hover:bg-rose-950/30 transition-colors"
+        >
+          <Trash2 className="w-4 h-4 shrink-0" />
+          Delete Account
+        </button>
       </div>
+
+      {showDeleteModal && <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />}
     </aside>
   )
 }

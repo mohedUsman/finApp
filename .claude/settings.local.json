@@ -4,7 +4,16 @@
       "Bash(Copy-Item *)",
       "PowerShell(Copy-Item *)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\usmohammed\\\\OneDrive - Deloitte \\(O365D\\)\\\\Documents\\\\FP3\\\\finance-tracker\" -Recurse -File)",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(mysql -u root -proot -e \"SELECT 1;\")",
+      "Bash(npm run *)",
+      "Bash(echo \"Frontend PID: $!\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\usmohammed\\\\OneDrive - Deloitte \\(O365D\\)\\\\Documents\\\\FP3\\\\finance-tracker\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "PowerShell(head *)",
+      "PowerShell(Stop-Process *)",
+      "Skill(run)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\usmohammed\\\\OneDrive - Deloitte \\(O365D\\)\\\\Documents\\\\FP3\\\\finance-tracker\" -Recurse -Directory)"
     ]
   }
 }
