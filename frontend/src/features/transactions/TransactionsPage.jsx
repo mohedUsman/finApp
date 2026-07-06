@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Plus, Edit2, Trash2, Check, Clock, CheckCircle2, Repeat } from 'lucide-react'
+import { Plus, Edit2, Trash2, Check, Clock, CheckCircle2, Repeat, Download, ChevronDown, FileSpreadsheet, FileText, Loader2 } from 'lucide-react'
 import api from '../../lib/apiClient'
 import { formatCurrency, formatDate, currentYearMonth, prevMonth, nextMonth, monthName } from '../../lib/format'
 import Modal from '../../shared/Modal'
@@ -8,6 +8,7 @@ import { useToast } from '../../shared/ToastContext'
 import { queryClient } from '../../lib/queryClient'
 import TransactionForm from './TransactionForm'
 import ConfirmForm from './ConfirmForm'
+import { exportToExcel, exportToPdf } from './exportUtils'
 
 function StatusPill({ status }) {
   return status === 'ACTUAL' ? (
@@ -18,6 +19,68 @@ function StatusPill({ status }) {
     <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-500/10 text-amber-400">
       <Clock className="w-2.5 h-2.5" /> EXPECTED
     </span>
+  )
+}
+
+function ExportDropdown({ txList, ym, typeFilter, statusFilter }) {
+  const [open, setOpen]       = useState(false)
+  const [exporting, setExporting] = useState(null) // null | 'excel' | 'pdf'
+  const toast = useToast()
+  const ref   = useRef(null)
+
+  useEffect(() => {
+    function onOutside(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [])
+
+  async function doExport(format) {
+    if (!txList.length) { toast.error('No transactions to export'); setOpen(false); return }
+    setOpen(false)
+    setExporting(format)
+    await new Promise(r => setTimeout(r, 50)) // let spinner render before heavy sync work
+    try {
+      if (format === 'excel') { exportToExcel(txList, ym, typeFilter, statusFilter); toast.success('Excel file downloaded') }
+      else                    { exportToPdf(txList, ym, typeFilter, statusFilter);   toast.success('PDF downloaded') }
+    } catch {
+      toast.error('Export failed')
+    } finally {
+      setExporting(null)
+    }
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        disabled={!!exporting}
+        className="px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg flex items-center gap-1.5 hover:bg-slate-700 disabled:opacity-50 transition-colors"
+      >
+        {exporting
+          ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Exporting…</>
+          : <><Download className="w-3.5 h-3.5" /> Export <ChevronDown className="w-3 h-3 ml-0.5" /></>
+        }
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-1 w-52 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl z-20 overflow-hidden">
+          <button
+            onClick={() => doExport('excel')}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400 shrink-0" />
+            Export as Excel (.xlsx)
+          </button>
+          <button
+            onClick={() => doExport('pdf')}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+          >
+            <FileText className="w-4 h-4 text-rose-400 shrink-0" />
+            Export as PDF
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -77,6 +140,7 @@ export default function TransactionsPage() {
             <option value="EXPECTED">Expected</option>
             <option value="ACTUAL">Actual</option>
           </select>
+          <ExportDropdown txList={txList} ym={ym} typeFilter={typeFilter} statusFilter={statusFilter} />
           <button
             onClick={() => setModal({ type: 'add' })}
             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"

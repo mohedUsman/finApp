@@ -13,7 +13,8 @@
       "PowerShell(head *)",
       "PowerShell(Stop-Process *)",
       "Skill(run)",
-      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\usmohammed\\\\OneDrive - Deloitte \\(O365D\\)\\\\Documents\\\\FP3\\\\finance-tracker\" -Recurse -Directory)"
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\usmohammed\\\\OneDrive - Deloitte \\(O365D\\)\\\\Documents\\\\FP3\\\\finance-tracker\" -Recurse -Directory)",
+      "Bash(npm install *)"
     ]
   }
 }
