@@ -12,13 +12,31 @@ const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 
 function fmt(v) { return formatCurrency(v) }
 
+function fmtBar(rupees) {
+  if (rupees >= 10000000) return `₹${(rupees / 10000000).toFixed(1)}Cr`
+  if (rupees >= 100000)   return `₹${(rupees / 100000).toFixed(1)}L`
+  if (rupees >= 1000)     return `₹${(rupees / 1000).toFixed(1)}K`
+  return `₹${Math.round(rupees)}`
+}
+
 export default function DashboardPage() {
   const [ym, setYm] = useState(currentYearMonth())
   const toast = useToast()
 
+  const from    = `${ym.year}-${String(ym.month).padStart(2, '0')}-01`
+  const lastDay = new Date(ym.year, ym.month, 0).getDate()
+  const to      = `${ym.year}-${String(ym.month).padStart(2, '0')}-${lastDay}`
+
   const { data: report, isLoading } = useQuery({
     queryKey: ['report', 'monthly', ym.year, ym.month],
     queryFn: () => api.get(`/reports/monthly?year=${ym.year}&month=${ym.month}`).then(r => r.data),
+  })
+
+  // Fetch raw transactions so we can aggregate ALL categories that had cash flow,
+  // including ACTUAL-only entries that have no expected_date and are invisible in byCategory.
+  const { data: txData } = useQuery({
+    queryKey: ['transactions', ym.year, ym.month],
+    queryFn: () => api.get(`/transactions?from=${from}&to=${to}&size=500`).then(r => r.data),
   })
 
   const generateMutation = useMutation({
@@ -29,6 +47,23 @@ export default function DashboardPage() {
     },
     onError: () => toast.error('Generation failed'),
   })
+
+  // Aggregate ALL categories from raw transactions (both plan-lens and cash-lens),
+  // so categories with only actual_date (no expected_date) are included.
+  const monthlySummary = (() => {
+    const txList = txData?.content ?? []
+    const map = new Map()
+    txList.forEach(tx => {
+      const key = tx.categoryName ?? 'Unknown'
+      if (!map.has(key)) map.set(key, { name: key, type: tx.type, actual: 0, planned: 0 })
+      const e = map.get(key)
+      if (tx.status === 'ACTUAL')    e.actual  += Number(tx.actualAmountMinor   ?? 0)
+      if (tx.status === 'EXPECTED')  e.planned += Number(tx.expectedAmountMinor ?? 0)
+    })
+    return [...map.values()]
+      .filter(c => c.actual + c.planned > 0)
+      .sort((a, b) => (b.actual || b.planned) - (a.actual || a.planned))
+  })()
 
   const expensePieData = report?.byCategory
     .filter(c => c.type === 'EXPENSE' && c.actualAmountMinor > 0)
@@ -99,6 +134,77 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Monthly Summary */}
+          <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-sm font-medium text-slate-300">Monthly Summary</span>
+              <div className="flex items-center gap-5 text-xs tabular-nums">
+                <span className="text-slate-500">Cash in&nbsp;
+                  <span className="text-emerald-400 font-semibold">{fmt(report?.totalActualIncomeMinor)}</span>
+                </span>
+                <span className="text-slate-700">|</span>
+                <span className="text-slate-500">Cash out&nbsp;
+                  <span className="text-rose-400 font-semibold">{fmt(report?.totalActualExpenseMinor)}</span>
+                </span>
+                <span className="text-slate-700">|</span>
+                <span className="text-slate-500">Net&nbsp;
+                  <span className={`font-semibold ${(report?.netActualMinor ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {fmt(report?.netActualMinor)}
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {(() => {
+              const actual = monthlySummary.filter(c => c.actual > 0)
+              if (!actual.length) return (
+                <div className="py-10 text-center text-slate-600 text-sm">No confirmed transactions this month</div>
+              )
+              const expenses = actual.filter(c => c.type === 'EXPENSE')
+              const income   = actual.filter(c => c.type === 'INCOME')
+              const EXP_PAL = ['#ef4444','#f97316','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16','#6366f1','#a78bfa','#3b82f6']
+              const INC_PAL = ['#10b981','#34d399','#059669','#6ee7b7','#a7f3d0','#047857']
+              const allSlices = [
+                ...expenses.map((c, i) => ({ name: c.name, value: c.actual, color: EXP_PAL[i % EXP_PAL.length], type: 'EXPENSE' })),
+                ...income.map((c, i)   => ({ name: c.name, value: c.actual, color: INC_PAL[i % INC_PAL.length], type: 'INCOME' })),
+              ]
+              const total = allSlices.reduce((s, c) => s + c.value, 0)
+              const sorted = [...allSlices].sort((a, b) => b.value - a.value)
+              return (
+                <div className="px-4 py-3 flex gap-5 items-start">
+                  {/* Donut */}
+                  <div className="relative shrink-0" style={{ width: 152, height: 152 }}>
+                    <PieChart width={152} height={152}>
+                      <Pie data={allSlices} dataKey="value" cx="50%" cy="50%"
+                        innerRadius={48} outerRadius={70} paddingAngle={1.5} startAngle={90} endAngle={-270}
+                      >
+                        {allSlices.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v, _, p) => [fmt(v), p.payload.name]}
+                        contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
+                      />
+                    </PieChart>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[9px] text-slate-500 leading-none">Total</span>
+                      <span className="text-xs font-bold text-slate-200 tabular-nums mt-1">{fmtBar(total / 100)}</span>
+                    </div>
+                  </div>
+                  {/* Legend */}
+                  <div className="flex-1 min-w-0 overflow-y-auto" style={{ maxHeight: 152 }}>
+                    {sorted.map(c => (
+                      <div key={c.name} className="flex items-center gap-2 py-1 min-w-0">
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color }} />
+                        <div className="flex-1 min-w-0 text-xs text-slate-400 truncate" title={c.name}>{c.name}</div>
+                        <div className="text-xs tabular-nums text-slate-300 shrink-0 ml-2">{fmt(c.value)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
 
           {/* Charts */}
