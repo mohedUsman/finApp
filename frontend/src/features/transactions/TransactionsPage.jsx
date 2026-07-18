@@ -117,6 +117,10 @@ export default function TransactionsPage() {
 
   const txList = data?.content ?? []
 
+  const totalIncome  = txList.filter(t => t.type === 'INCOME'  && t.status === 'ACTUAL').reduce((s, t) => s + Number(t.actualAmountMinor ?? 0), 0)
+  const totalExpense = txList.filter(t => t.type === 'EXPENSE' && t.status === 'ACTUAL').reduce((s, t) => s + Number(t.actualAmountMinor ?? 0), 0)
+  const net = totalIncome - totalExpense
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -149,6 +153,25 @@ export default function TransactionsPage() {
           </button>
         </div>
       </div>
+
+      {!isLoading && txList.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
+            <div className="text-xs text-slate-500 mb-1">Income</div>
+            <div className="text-base font-bold text-emerald-400 tabular-nums">{formatCurrency(totalIncome)}</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
+            <div className="text-xs text-slate-500 mb-1">Expense</div>
+            <div className="text-base font-bold text-rose-400 tabular-nums">{formatCurrency(totalExpense)}</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
+            <div className="text-xs text-slate-500 mb-1">Net</div>
+            <div className={`text-base font-bold tabular-nums ${net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {formatCurrency(net)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="text-slate-500 text-sm">Loading…</div>
