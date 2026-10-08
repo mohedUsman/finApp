@@ -1,0 +1,67 @@
+services:
+
+  # ── Option A (current): backend + frontend in Docker, MySQL stays LOCAL ──────
+  # Your existing MySQL data is untouched.
+  # host.docker.internal lets the backend container reach your local MySQL.
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fintrack-backend
+    env_file:
+      - .env                    # passes all vars from .env into the container
+    environment:
+      # These two override the .env values so the container reaches local MySQL
+      DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/fintrack?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      CORS_ALLOWED_ORIGINS: http://localhost
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fintrack-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  # ── Option B (full Docker): uncomment below + comment out Option A above ─────
+  # First export your data:  mysqldump -u root -p fintrack > fintrack_backup.sql
+  # Then import after first run:
+  #   docker exec -i fintrack-db mysql -u fintrack -pfintrack fintrack < fintrack_backup.sql
+  #
+  # db:
+  #   image: mysql:8.0
+  #   container_name: fintrack-db
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+  #     MYSQL_DATABASE: fintrack
+  #     MYSQL_USER: fintrack
+  #     MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql          # data persists across restarts
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "fintrack", "-pfintrack"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 10
+  #
+  # backend:  (replace the backend above with this when using Option B)
+  #   ...
+  #   environment:
+  #     DATASOURCE_URL: jdbc:mysql://db:3306/fintrack?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+  #     DATASOURCE_USERNAME: fintrack
+  #     DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+
+# volumes:
+#   mysql_data:

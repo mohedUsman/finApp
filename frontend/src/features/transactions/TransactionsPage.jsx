@@ -89,7 +89,11 @@ export default function TransactionsPage() {
   const [modal, setModal] = useState(null) // null | { type: 'add'|'edit'|'confirm', tx? }
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
   const toast = useToast()
+
+  // Reset category selection when month or type changes (categories differ per month/type)
+  useEffect(() => { setCategoryFilter('') }, [ym.year, ym.month, typeFilter])
 
   const from = `${ym.year}-${String(ym.month).padStart(2, '0')}-01`
   const lastDay = new Date(ym.year, ym.month, 0).getDate()
@@ -117,8 +121,14 @@ export default function TransactionsPage() {
 
   const txList = data?.content ?? []
 
-  const totalIncome  = txList.filter(t => t.type === 'INCOME'  && t.status === 'ACTUAL').reduce((s, t) => s + Number(t.actualAmountMinor ?? 0), 0)
-  const totalExpense = txList.filter(t => t.type === 'EXPENSE' && t.status === 'ACTUAL').reduce((s, t) => s + Number(t.actualAmountMinor ?? 0), 0)
+  // Unique sorted category names for the dropdown (from API result before category filter)
+  const categories = [...new Set(txList.map(t => t.categoryName).filter(Boolean))].sort()
+
+  // Category filter applied client-side (type/status already filtered by API)
+  const displayList = categoryFilter ? txList.filter(t => t.categoryName === categoryFilter) : txList
+
+  const totalIncome  = displayList.filter(t => t.type === 'INCOME'  && t.status === 'ACTUAL').reduce((s, t) => s + Number(t.actualAmountMinor ?? 0), 0)
+  const totalExpense = displayList.filter(t => t.type === 'EXPENSE' && t.status === 'ACTUAL').reduce((s, t) => s + Number(t.actualAmountMinor ?? 0), 0)
   const net = totalIncome - totalExpense
 
   return (
@@ -144,7 +154,14 @@ export default function TransactionsPage() {
             <option value="EXPECTED">Expected</option>
             <option value="ACTUAL">Actual</option>
           </select>
-          <ExportDropdown txList={txList} ym={ym} typeFilter={typeFilter} statusFilter={statusFilter} />
+          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}
+            className="px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg max-w-[160px]">
+            <option value="">All categories</option>
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+          <ExportDropdown txList={displayList} ym={ym} typeFilter={typeFilter} statusFilter={statusFilter} />
           <button
             onClick={() => setModal({ type: 'add' })}
             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
@@ -154,7 +171,7 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {!isLoading && txList.length > 0 && (
+      {!isLoading && displayList.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
             <div className="text-xs text-slate-500 mb-1">Income</div>
@@ -175,8 +192,10 @@ export default function TransactionsPage() {
 
       {isLoading ? (
         <div className="text-slate-500 text-sm">Loading…</div>
-      ) : txList.length === 0 ? (
-        <div className="text-slate-600 text-sm py-10 text-center">No transactions for this period.</div>
+      ) : displayList.length === 0 ? (
+        <div className="text-slate-600 text-sm py-10 text-center">
+          {txList.length > 0 ? `No transactions match the selected filters.` : 'No transactions for this period.'}
+        </div>
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
           <table className="w-full text-sm">
@@ -193,7 +212,7 @@ export default function TransactionsPage() {
               </tr>
             </thead>
             <tbody>
-              {txList.map(tx => (
+              {displayList.map(tx => (
                 <tr key={tx.id} className="border-b border-slate-800/50 hover:bg-slate-800/20">
                   <td className="px-4 py-2.5 text-slate-400 tabular-nums whitespace-nowrap">
                     {formatDate(tx.actualDate ?? tx.expectedDate)}

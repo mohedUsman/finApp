@@ -25,6 +25,12 @@ function sumBalances(balances) {
   return Object.values(balances).reduce((s, v) => s + Number(v), 0)
 }
 
+const inrExact = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 })
+function fmtExact(minor) {
+  if (minor == null) return '—'
+  return inrExact.format(Number(minor) / 100)
+}
+
 function fmtCompact(minor) {
   if (minor == null) return '—'
   const abs = Math.abs(minor) / 100
@@ -383,21 +389,21 @@ export default function NetWorthPage() {
                   </td>
                   {activeAssets.map(a => (
                     <td key={a.id} className="py-2 px-3 text-right text-slate-300 tabular-nums whitespace-nowrap">
-                      {s._bal[a.id] ? fmtCompact(Number(s._bal[a.id])) : '—'}
+                      {s._bal[a.id] ? fmtExact(Number(s._bal[a.id])) : '—'}
                     </td>
                   ))}
                   <td className="py-2 px-3 text-right text-white font-semibold tabular-nums whitespace-nowrap">
-                    {fmtCompact(s._total)}
+                    {fmtExact(s._total)}
                   </td>
                   <td className={`py-2 px-3 text-right tabular-nums whitespace-nowrap font-medium ${
                     (s._surplus ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
                   }`}>
-                    {s._surplus != null ? fmtCompact(s._surplus) : '—'}
+                    {s._surplus != null ? fmtExact(s._surplus) : '—'}
                   </td>
                   <td className={`py-2 px-3 text-right tabular-nums whitespace-nowrap font-medium ${
                     (s._stockDelta ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
                   }`}>
-                    {s._stockDelta != null ? fmtCompact(s._stockDelta) : '—'}
+                    {s._stockDelta != null ? fmtExact(s._stockDelta) : '—'}
                   </td>
                   <td className="py-2 px-4 text-right pr-4 whitespace-nowrap">
                     <div className="flex items-center justify-end gap-1">

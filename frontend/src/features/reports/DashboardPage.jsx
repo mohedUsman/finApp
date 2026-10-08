@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts'
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts'
 import { RefreshCw, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import api from '../../lib/apiClient'
 import { formatCurrency, monthName, currentYearMonth, prevMonth, nextMonth } from '../../lib/format'
@@ -8,16 +8,9 @@ import KpiCard from '../../shared/KpiCard'
 import { queryClient } from '../../lib/queryClient'
 import { useToast } from '../../shared/ToastContext'
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16']
 
 function fmt(v) { return formatCurrency(v) }
 
-function fmtBar(rupees) {
-  if (rupees >= 10000000) return `₹${(rupees / 10000000).toFixed(1)}Cr`
-  if (rupees >= 100000)   return `₹${(rupees / 100000).toFixed(1)}L`
-  if (rupees >= 1000)     return `₹${(rupees / 1000).toFixed(1)}K`
-  return `₹${Math.round(rupees)}`
-}
 
 export default function DashboardPage() {
   const [ym, setYm] = useState(currentYearMonth())
@@ -64,10 +57,6 @@ export default function DashboardPage() {
       .filter(c => c.actual + c.planned > 0)
       .sort((a, b) => (b.actual || b.planned) - (a.actual || a.planned))
   })()
-
-  const expensePieData = report?.byCategory
-    .filter(c => c.type === 'EXPENSE' && c.actualAmountMinor > 0)
-    .map(c => ({ name: c.categoryName, value: c.actualAmountMinor })) ?? []
 
   const varianceData = report?.byCategory
     .slice(0, 10)
@@ -162,87 +151,110 @@ export default function DashboardPage() {
               if (!actual.length) return (
                 <div className="py-10 text-center text-slate-600 text-sm">No confirmed transactions this month</div>
               )
-              const expenses = actual.filter(c => c.type === 'EXPENSE')
-              const income   = actual.filter(c => c.type === 'INCOME')
-              const EXP_PAL = ['#ef4444','#f97316','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16','#6366f1','#a78bfa','#3b82f6']
-              const INC_PAL = ['#10b981','#34d399','#059669','#6ee7b7','#a7f3d0','#047857']
-              const allSlices = [
-                ...expenses.map((c, i) => ({ name: c.name, value: c.actual, color: EXP_PAL[i % EXP_PAL.length], type: 'EXPENSE' })),
-                ...income.map((c, i)   => ({ name: c.name, value: c.actual, color: INC_PAL[i % INC_PAL.length], type: 'INCOME' })),
-              ]
-              const total = allSlices.reduce((s, c) => s + c.value, 0)
-              const sorted = [...allSlices].sort((a, b) => b.value - a.value)
-              return (
-                <div className="px-4 py-3 flex gap-5 items-start">
-                  {/* Donut */}
-                  <div className="relative shrink-0" style={{ width: 152, height: 152 }}>
-                    <PieChart width={152} height={152}>
-                      <Pie data={allSlices} dataKey="value" cx="50%" cy="50%"
-                        innerRadius={48} outerRadius={70} paddingAngle={1.5} startAngle={90} endAngle={-270}
-                      >
-                        {allSlices.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip
-                        formatter={(v, _, p) => [fmt(v), p.payload.name]}
-                        contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
-                      />
-                    </PieChart>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[9px] text-slate-500 leading-none">Total</span>
-                      <span className="text-xs font-bold text-slate-200 tabular-nums mt-1">{fmtBar(total / 100)}</span>
-                    </div>
-                  </div>
-                  {/* Legend */}
-                  <div className="flex-1 min-w-0 overflow-y-auto" style={{ maxHeight: 152 }}>
-                    {sorted.map(c => (
-                      <div key={c.name} className="flex items-center gap-2 py-1 min-w-0">
-                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.color }} />
-                        <div className="flex-1 min-w-0 text-xs text-slate-400 truncate" title={c.name}>{c.name}</div>
-                        <div className="text-xs tabular-nums text-slate-300 shrink-0 ml-2">{fmt(c.value)}</div>
+              const expenses = actual.filter(c => c.type === 'EXPENSE').sort((a, b) => b.actual - a.actual)
+              const income   = actual.filter(c => c.type === 'INCOME').sort((a, b) => b.actual - a.actual)
+              const EXP_PAL  = ['#ef4444','#f97316','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16','#6366f1','#a78bfa','#3b82f6']
+              const INC_PAL  = ['#10b981','#34d399','#059669','#22d3ee','#a3e635','#047857']
+              const expTotal = expenses.reduce((s, c) => s + c.actual, 0)
+              const incTotal = income.reduce((s, c)   => s + c.actual, 0)
+
+              const CategoryRows = ({ items, palette, total }) => (
+                <div className="space-y-4">
+                  {items.map((c, i) => {
+                    const pct = total > 0 ? (c.actual / total) * 100 : 0
+                    const color = palette[i % palette.length]
+                    return (
+                      <div key={c.name}>
+                        <div className="flex items-center justify-between mb-1.5 gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+                            <span className="text-xs text-slate-400 truncate" title={c.name}>{c.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[10px] font-medium text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full tabular-nums">
+                              {pct.toFixed(0)}%
+                            </span>
+                            <span className="text-sm font-bold tabular-nums" style={{ color }}>{fmt(c.actual)}</span>
+                          </div>
+                        </div>
+                        <div className="h-2 bg-slate-800/60 rounded-full overflow-hidden ml-4">
+                          <div className="h-full rounded-full"
+                            style={{ width: `${pct}%`, background: `linear-gradient(to right, ${color}66, ${color})` }} />
+                        </div>
                       </div>
-                    ))}
+                    )
+                  })}
+                </div>
+              )
+
+              return (
+                <div className="px-4 py-4 grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-800 gap-0">
+                  {/* Income */}
+                  <div className={`${income.length && expenses.length ? 'pb-4 lg:pb-0 lg:pr-6' : ''}`}>
+                    {income.length > 0 ? (
+                      <>
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                              <span className="text-[11px] font-bold tracking-widest uppercase text-emerald-400">Income</span>
+                            </div>
+                            <span className="text-[10px] text-slate-600 ml-4">{income.length} {income.length === 1 ? 'source' : 'sources'}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xl font-bold tabular-nums text-emerald-400 leading-none">{fmt(incTotal)}</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">cash in</div>
+                          </div>
+                        </div>
+                        <CategoryRows items={income} palette={INC_PAL} total={incTotal} />
+                      </>
+                    ) : (
+                      <div className="py-4 text-center text-slate-600 text-xs">No income confirmed this month</div>
+                    )}
+                  </div>
+
+                  {/* Expenses */}
+                  <div className={`${income.length && expenses.length ? 'pt-4 lg:pt-0 lg:pl-6' : ''}`}>
+                    {expenses.length > 0 ? (
+                      <>
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full bg-rose-400" />
+                              <span className="text-[11px] font-bold tracking-widest uppercase text-rose-400">Expenses</span>
+                            </div>
+                            <span className="text-[10px] text-slate-600 ml-4">{expenses.length} {expenses.length === 1 ? 'category' : 'categories'}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xl font-bold tabular-nums text-rose-400 leading-none">{fmt(expTotal)}</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">cash out</div>
+                          </div>
+                        </div>
+                        <CategoryRows items={expenses} palette={EXP_PAL} total={expTotal} />
+                      </>
+                    ) : (
+                      <div className="py-4 text-center text-slate-600 text-xs">No expenses confirmed this month</div>
+                    )}
                   </div>
                 </div>
               )
             })()}
           </div>
 
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Daily Trend */}
-            <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
-              <div className="text-sm font-medium text-slate-300 mb-4">Daily Cash Flow</div>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={trendData} margin={{ top: 5, right: 5, bottom: 0, left: -10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} stroke="#334155" />
-                  <YAxis tick={{ fill: '#64748b', fontSize: 10 }} stroke="#334155" tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
-                  <Tooltip formatter={(v) => fmt(v * 100)} contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 12 }} />
-                  <Line type="monotone" dataKey="income" stroke="#10b981" dot={false} strokeWidth={2} name="Cash Income" />
-                  <Line type="monotone" dataKey="expense" stroke="#ef4444" dot={false} strokeWidth={2} name="Cash Expense" />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Expense Mix Donut */}
-            <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
-              <div className="text-sm font-medium text-slate-300 mb-4">Expense Mix</div>
-              {expensePieData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie data={expensePieData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                      innerRadius={50} outerRadius={80} paddingAngle={2}>
-                      {expensePieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={v => fmt(v)} contentStyle={{ background: '#1e293b', border: '1px solid #334155' }} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[200px] flex items-center justify-center text-slate-600 text-sm">No expense data</div>
-              )}
-            </div>
+          {/* Daily Cash Flow */}
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+            <div className="text-sm font-medium text-slate-300 mb-4">Daily Cash Flow</div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={trendData} margin={{ top: 5, right: 5, bottom: 0, left: -10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} stroke="#334155" />
+                <YAxis tick={{ fill: '#64748b', fontSize: 10 }} stroke="#334155" tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
+                <Tooltip formatter={(v) => fmt(v * 100)} contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 12 }} />
+                <Line type="monotone" dataKey="income" stroke="#10b981" dot={false} strokeWidth={2} name="Cash Income" />
+                <Line type="monotone" dataKey="expense" stroke="#ef4444" dot={false} strokeWidth={2} name="Cash Expense" />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
 
           {/* Category Variance */}
