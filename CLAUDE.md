@@ -4,38 +4,69 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Pre-build. Only `# Personal Finance Tracker — Build.txt` (architecture decisions) and `prototype.jsx` (~2650-line single-file React prototype) exist. No backend or production frontend code has been written yet. The Build.txt is the authoritative source of all architectural decisions — do not deviate from it without asking the user.
+**Fully built and running.** The complete backend (9 domain packages) and frontend (7 feature pages) are implemented and committed.
 
-## Stack (locked in)
+`CONTEXT.md` is a historical design document written before the build — it reads as a forward-looking plan and its "build order" and "already-created files" sections are no longer current. Treat it as design intent only; the code under `backend/src` and `frontend/src` is authoritative.
+
+`prototype.jsx` and `finance-tracker.tsx` at the repo root are legacy ~2650-line single-file prototypes, superseded by `frontend/src/`. They remain as a UX reference only — do not edit them, and do not read them when analyzing current behavior.
+
+## Stack (as built)
 
 | Layer | Choice |
 |---|---|
-| Backend | Java 21 LTS, Spring Boot 3.4.x, Maven |
-| ORM | Spring Data JPA + Hibernate |
-| Migrations | Flyway |
-| DB | MySQL 8 (Docker, port 3306, db `fintrack`, user `fintrack`) |
-| Auth | JWT access (15 min) + refresh (7 days, hashed in DB + HttpOnly cookie) |
-| Frontend | React 18, Vite, plain JavaScript (no TypeScript), Tailwind CSS, Recharts, TanStack Query, React Hook Form + Zod, axios |
-| Money | `bigint` paise (minor units) in DB; display as ₹ INR with 2 decimals |
+| Backend | Java 21, Spring Boot 3.3.5, Maven |
+| ORM | Spring Data JPA + Hibernate (`ddl-auto: validate`) |
+| Migrations | Flyway — single `V1__init_schema.sql`, 7 tables |
+| DB | MySQL 8, port 3306, db `fintrack` |
+| Auth | JWT access (15 min) + refresh (7 days, SHA-256 hashed in DB + HttpOnly cookie), BCrypt passwords |
+| Env loading | spring-dotenv 4.0.0 — reads `backend/.env`, falls back to shell env vars |
+| Frontend | React 18, Vite 5, plain JavaScript (no TypeScript), Tailwind, Recharts, TanStack Query, React Hook Form + Zod, axios |
+| Export | `xlsx` (Excel), `jsPDF` + autoTable (PDF) |
+| Money | `BIGINT` paise (minor units) end to end; display ₹ INR with 2 decimals |
 | API | REST JSON under `/api/v1` |
 
-## Common commands
+## Running locally
+
+Requires JDK 21 specifically — the pom targets 21 and the system default `java` may be newer.
 
 ```bash
-# Start Postgres
-docker-compose up -d
+# 1. MySQL 8 on port 3306. If none is installed locally, run one in a container:
+docker run -d --name fintrack-mysql \
+  -e MYSQL_ROOT_PASSWORD=fintrack -e MYSQL_DATABASE=fintrack \
+  -p 3306:3306 mysql:8.0
 
-# Backend
-mvn spring-boot:run                        # run dev server (port 8080)
-mvn test                                   # all tests
-mvn test -Dtest=ClassName#methodName       # single test
-mvn test -pl backend -Dtest=RecurringServiceTest   # module-scoped
+# 2. Backend — config via backend/.env or shell env vars (see table below).
+#    Flyway creates all tables on first boot.
+cd backend
+mvn spring-boot:run                  # http://localhost:8080
 
-# Frontend (inside frontend/)
-npm run dev                                # Vite dev server (port 5173)
-npm run build
-npm run lint
+# 3. Frontend
+cd frontend
+npm install
+npm run dev                          # http://localhost:5173
 ```
+
+Then register at `/signup` — this seeds 21 categories and 7 asset buckets for the new user.
+
+### Build artifact
+
+`mvn clean package -DskipTests` produces **`target/fintrack-backend.jar`** — the pom sets `<finalName>fintrack-backend</finalName>`, so there is no version suffix in the filename.
+
+### Required environment variables
+
+`DATASOURCE_URL`, `DATASOURCE_USERNAME`, `DATASOURCE_PASSWORD`, `JWT_SECRET` (min 32 chars) are required and have no defaults. Optional: `JWT_ACCESS_MINUTES` (15), `JWT_REFRESH_DAYS` (7), `CORS_ALLOWED_ORIGINS` (`http://localhost:5173`), `SPRING_PROFILES_ACTIVE`, `VITE_API_BASE_URL` (`http://localhost:8080/api/v1`).
+
+The JDBC URL must keep `allowPublicKeyRetrieval=true`; `createDatabaseIfNotExist=true` means the `fintrack` schema is created automatically.
+
+### Available commands
+
+```bash
+mvn spring-boot:run                  # backend dev server (8080)
+mvn clean package -DskipTests        # build jar
+npm run dev / build / preview        # frontend (no lint script configured)
+```
+
+There is **no test suite** — tests were explicitly out of scope for v1, and `backend/src/test` does not exist. Do not suggest `mvn test` as a verification step; verify via `curl` or the UI instead.
 
 ## Architecture
 
@@ -43,110 +74,105 @@ npm run lint
 
 ```
 src/main/java/com/fintrack/
-  auth/          # JWT, refresh tokens, register/login/logout
-  user/          # GET/PATCH /me
+  auth/          # JWT issue/refresh/logout, register/login
+  user/          # GET/PATCH/DELETE /me
   category/      # CRUD + default seeding on register
   transaction/   # CRUD + POST /{id}/confirm
-  recurring/     # rules CRUD + generation service
-  reporting/     # monthly + quarterly SQL aggregation
+  recurring/     # rules CRUD + idempotent generation service
+  reporting/     # monthly + quarterly, raw SQL via EntityManager
   networth/      # asset_categories + net_worth_snapshots
   common/        # error model, global exception handler, base audit entity
-  security/      # JwtAuthenticationFilter, SecurityConfig, CurrentUser resolver
+  security/      # JwtAuthenticationFilter, SecurityConfig, @CurrentUser resolver
 ```
 
-Each domain package contains: `Controller`, `Service`, `Repository`, `Entity`, `Dto`, `Mapper`.
+Most domain packages contain `Controller`, `Service`, `Repository`, `Entity`, and a `dto/` subpackage. `reporting` is the exception — it has no entity or repository and queries through `EntityManager` directly.
 
 ### Frontend: feature-folder
 
 ```
 src/
-  features/
-    transactions/
-    categories/
-    recurring/
-    reports/        # dashboard + quarterly
-    networth/
-  shared/components/   # Modal, KPI, Sidebar, TopBar, Toast
-  lib/                 # apiClient.js, auth.jsx, queryClient.js, format.js
+  features/{transactions,categories,recurring,reports,networth}/
+  pages/            # AppLayout, LoginPage, SignupPage, ProtectedRoute
+  auth/             # AuthContext.jsx — provider + useAuth
+  shared/           # Modal, KpiCard, Sidebar, TopBar, ToastContext, DeleteAccountModal
+  lib/              # apiClient.js, queryClient.js, format.js
 ```
+
+Routes: `/login`, `/signup` public; `/dashboard`, `/transactions`, `/categories`, `/recurring`, `/quarterly`, `/networth` behind `ProtectedRoute`. `/` redirects to `/dashboard`.
 
 ### Key architectural decisions
 
-1. **No `ledger` table.** `user_id` lives directly on every domain table. Single-user-per-account model.
-2. **Reporting SQL only.** All aggregation in SQL (`SUM(CASE WHEN ...)`, `GROUP BY`). No in-Java aggregation for report endpoints.
-3. **Surplus and stock returns are frontend-computed** from snapshot deltas — never stored in DB. `net_worth_snapshots` stores only raw balances per asset category.
-4. **Recurring generation is idempotent** via `UNIQUE(recurring_rule_id, occurrence_key)` — occurrence_key is the ISO date string. Catch conflict on insert and skip.
-5. **Access token in memory** (React state + module var). Refresh token in HttpOnly cookie only.
-6. **CORS**: allow `http://localhost:5173` in dev, configurable via `CORS_ALLOWED_ORIGINS`.
+1. **No `ledger` table.** `user_id` lives directly on every domain table. Single-user-per-account.
+2. **Reporting is pure SQL.** The monthly report assembles six native queries (`SUM(CASE WHEN ...)`, `GROUP BY`). Never aggregate in Java for report endpoints.
+3. **Surplus and stock returns are frontend-computed** from snapshot deltas, never stored. `net_worth_snapshots` holds only raw balances per asset category in a JSON column.
+4. **Recurring generation is idempotent** via `UNIQUE(recurring_rule_id, occurrence_key)`, where occurrence_key is the ISO date string. Catch the duplicate-key conflict and skip.
+5. **Access token lives in a module variable** in `apiClient.js` — never localStorage, to limit XSS exposure. Refresh token is HttpOnly-cookie-only.
+6. **Concurrent 401s queue behind one in-flight refresh** (`waitQueue` in `apiClient.js`) rather than firing duplicate refresh calls.
+7. **UUIDs are `BINARY(16)`** in MySQL, generated in the JPA layer, exposed as strings in JSON (`UuidBinaryConverter`).
 
 ## Domain model essentials
 
 ### Two-lens reporting (Dashboard + Quarterly)
 - **Cash lens**: ACTUAL rows grouped by `actual_date`
-- **Plan lens**: any row with `expected_date` in period (regardless of status)
+- **Plan lens**: any row with `expected_date` in period, regardless of status
 - **Variance per category**: for rows with `expected_date` in month — if `EXPECTED` actual=0; if `ACTUAL` actual=`actual_amount_minor`. variance = actual − expected.
 
 ### Transaction status rules
 - `EXPECTED`: requires `expected_amount_minor` + `expected_date`
 - `ACTUAL`: requires `actual_amount_minor` + `actual_date`
-- `POST /transactions/{id}/confirm`: flips EXPECTED→ACTUAL; preserves expected fields; sets `confirmed_at`
+- `POST /transactions/{id}/confirm`: flips EXPECTED→ACTUAL, preserves expected fields, sets `confirmed_at`
+
+Multi-column conditional constraints are enforced in the service layer, not the DB — MySQL CHECK constraints can't express them cleanly, and partial unique indexes (sibling category names) have no MySQL equivalent.
 
 ### Recurring generation algorithm
 1. `SELECT FOR UPDATE` active rules where `next_run_date <= today`
 2. Generate occurrences from `next_run_date` through `min(today, end_date)`
-3. Insert EXPECTED tx per occurrence; use unique constraint as duplicate guard
-4. Advance `next_run_date` to next future occurrence after loop
-5. Day-31 monthly rules clamp to month-end (Feb 28/29, Apr 30, etc.)
-6. Use user's timezone (default `Asia/Kolkata`) for "today"
+3. Insert EXPECTED tx per occurrence; unique constraint is the duplicate guard
+4. Advance `next_run_date` to the next future occurrence after the loop
+5. Day-31 monthly rules clamp to month-end (Feb 28/29, Apr 30); yearly Feb 29 → Feb 28 in non-leap years
+6. Use the user's timezone (default `Asia/Kolkata`) for "today"
 
-### Default seeds (created on every new user registration)
+Triggered by the frontend on app open and by a manual "Generate now" button — there is no background scheduler.
 
-**Income categories**: Salary, Side Hustle Income, Freelance, Investments, Other Income
+### Default seeds (on every new user registration)
 
-**Expense categories**: Loan, Housing & Groceries, Dining Out or Food & Drinks, Healthcare, Transport or Commute, Fitness or Recreation, Social or Entertainment, Apparel or Personal Care, Household Expenses, Charity or Giving, Investment Loss, Subscriptions & Media, Miscellaneous Loss, ATM, Fuel & Maintenance, Other Expense
+**Income** (5): Salary, Side Hustle Income, Freelance, Investments, Other Income
 
-**Asset categories** (with colors): HDFC Bank (#3b82f6), Union Bank (#06b6d4), SBI Bank (#14b8a6), Stock (#10b981), Mutual Funds (#84cc16), Others (#a78bfa), Cash (#f59e0b)
+**Expense** (16): Loan, Housing & Groceries, Dining Out or Food & Drinks, Healthcare, Transport or Commute, Fitness or Recreation, Social or Entertainment, Apparel or Personal Care, Household Expenses, Charity or Giving, Investment Loss, Subscriptions & Media, Miscellaneous Loss, ATM, Fuel & Maintenance, Other Expense
 
-All seeded rows: `is_default=true` — cannot be deleted, only deactivated.
+**Asset categories** (7): HDFC Bank (#3b82f6), Union Bank (#06b6d4), SBI Bank (#14b8a6), Stock (#10b981), Mutual Funds (#84cc16), Others (#a78bfa), Cash (#f59e0b)
 
-## Build order (follow strictly, stop after each for verification)
+All seeded rows are `is_default=true` — cannot be deleted, only deactivated.
 
-1. Backend skeleton: `pom.xml`, `application.yml`, `application-dev.yml`, `FinTrackApplication.java`
-2. Flyway `V1__init_schema.sql` — all tables, indexes, constraints
-3. `common` module — error model, global exception handler, base audit entity
-4. `security` + `auth` modules — JWT util, filter, SecurityConfig, AuthController, BCrypt
-5. `user` module — `GET/PATCH /me`
-6. `category` module — full CRUD + default seeding service
-7. `transaction` module — full CRUD + confirm endpoint
-8. `recurring` module — rules CRUD + generation service
-9. `reporting` module — monthly + quarterly endpoints
-10. `networth` module — asset categories + snapshots CRUD
-11. Integration tests (JUnit 5 + Testcontainers)
-12. Frontend skeleton — Vite, Tailwind, routing, `main.jsx`, `App.jsx`
-13. Frontend lib — `apiClient.js` (axios + 401 refresh interceptor), auth provider, `queryClient.js`, `format.js`
-14. Auth pages (`LoginPage`, `SignupPage`) + `ProtectedRoute`
-15. Shared components — `Modal`, `KPI`, `Sidebar`, `TopBar`, `Toast`
-16. Features in order: transactions → categories → recurring → reports → networth
-17. README updates
+## API surface
 
-## UI reference (prototype.jsx)
+All under `/api/v1`. Protected endpoints require `Authorization: Bearer <token>`.
 
-The prototype is the definitive UX spec. Key patterns to reproduce:
+- **auth**: `POST /auth/{register,login,refresh,logout}`
+- **me**: `GET /me`, `PATCH /me`, `DELETE /me` (requires email + password re-confirmation)
+- **categories**: `GET`, `POST`, `PATCH /{id}`, `DELETE /{id}`
+- **transactions**: `GET`, `POST`, `PATCH /{id}`, `POST /{id}/confirm`, `DELETE /{id}`
+- **recurring**: `GET|POST /recurring-rules`, `PATCH|DELETE /recurring-rules/{id}`, `POST /recurring/generate`
+- **reports**: `GET /reports/monthly?year=&month=`, `GET /reports/quarterly?year=&quarter=`
+- **networth**: `GET|POST /asset-categories`, `PATCH|DELETE /asset-categories/{id}`, same shape for `/net-worth-snapshots`
+
+Error model: `{ errorCode, message, fieldErrors?, traceId? }` via `GlobalExceptionHandler`.
+
+## UI conventions
+
 - Dark theme: `bg-slate-950` page, `bg-slate-900` cards, `border-slate-800` borders
-- All monetary values: `tabular-nums` class
-- Status pills: EXPECTED = amber, ACTUAL = emerald, INCOME = emerald, EXPENSE = rose
+- All monetary values use the `tabular-nums` class
+- Status pills: EXPECTED = amber, ACTUAL = emerald; INCOME = emerald, EXPENSE = rose
 - `fmtINR(minor)` → `₹X,XX,XXX.XX` (Indian locale); `fmtCompact(minor)` → K/L/Cr suffixes
-- Month chip nav: dynamic last-N months with transaction count badges
-- Lens toggle: Both / Planned / Cash (affects cumulative chart line visibility)
-- `computeDerivedMetrics(sortedSnapshots)` — computes surplus and stock delta client-side
+- Month chip nav with transaction count badges; lens toggle Both / Planned / Cash
+- All modals go through the shared `<Modal>` component; feedback via `ToastContext`
+
+## Features beyond the original spec
+
+- **Excel + PDF export** of transactions (`features/transactions/exportUtils.js`) — styled headers, totals row, frozen panes, multi-page landscape PDF
+- **Account self-deletion** (`UserService.deleteMe`) — ordered cascading deletes to satisfy FK RESTRICT constraints
+- **TopBar live monthly KPIs**, shown app-wide independent of the Dashboard
 
 ## Out of scope (v1)
 
-Multi-currency conversion, account/wallet sub-dimensions, email/password reset, background schedulers, budgeting, mobile app, public deployment, CI/CD pipelines.
-
-## Test requirements
-
-- Auth: register, login, refresh, expired token rejection
-- Transactions: create EXPECTED, confirm flow, category-type mismatch rejection
-- Recurring: idempotent generation (run twice = no duplicates), day-31 clamping, backfill from past start date, concurrent safety
-- Reporting: monthly variance math, quarterly month-by-month totals, by-category aggregation
+Multi-currency conversion, account/wallet sub-dimensions, email/password reset, background schedulers, budgeting, mobile app, public deployment, CI/CD, automated tests.
