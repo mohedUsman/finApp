@@ -38,6 +38,16 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 
+# Local tool state — can capture command history including credentials
+.claude/settings.local.json
+
+# Database dumps — a full dump of every user's financial data.
+# docker-compose.yml tells the operator to write one into the repo root.
+*backup*.sql
+*dump*.sql
+*.sql.gz
+!db/bootstrap.sql
+
 # OS
 .DS_Store
 Thumbs.db

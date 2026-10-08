@@ -59,11 +59,15 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<AccessTokenResponse> refresh(
-            @CookieValue(name = REFRESH_COOKIE, required = false) String refreshCookie) {
+            @CookieValue(name = REFRESH_COOKIE, required = false) String refreshCookie,
+            HttpServletResponse response) {
         if (refreshCookie == null || refreshCookie.isBlank()) {
             throw new UnauthorizedException("Missing refresh token");
         }
-        return ResponseEntity.ok(auth.refresh(refreshCookie));
+        // Tokens are single-use: hand the rotated replacement back to the client.
+        AuthService.RefreshResult result = auth.refresh(refreshCookie);
+        addRefreshCookie(response, result.rawRefreshToken());
+        return ResponseEntity.ok(result.accessToken());
     }
 
     @PostMapping("/logout")

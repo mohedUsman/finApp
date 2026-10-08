@@ -38,6 +38,10 @@ api.interceptors.response.use(
       return Promise.reject(err)
     }
     if (isRefreshing) {
+      // Mark before queueing: without this the replayed request has no _retry
+      // flag, so a second 401 lets it start its own refresh and the cycle
+      // repeats.
+      original._retry = true
       return new Promise((resolve, reject) => {
         waitQueue.push({ resolve, reject })
       }).then(token => {

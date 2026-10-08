@@ -5,6 +5,11 @@ spring:
       hibernate:
         format_sql: true
 
+cookie:
+  # The dev frontend is plain HTTP on localhost, where a Secure cookie
+  # would never be sent back. Production keeps the default (true).
+  secure: false
+
 logging:
   level:
     com.fintrack: DEBUG

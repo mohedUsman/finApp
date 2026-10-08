@@ -69,13 +69,22 @@ public class AuthService {
         return issueTokens(user);
     }
 
+    /**
+     * Rotates the refresh token and mints a new access token. The caller must
+     * send the returned {@code rawRefreshToken} back as a cookie — the presented
+     * one is now revoked.
+     */
     @Transactional
-    public AccessTokenResponse refresh(String rawRefreshToken) {
-        RefreshTokenEntity rt = refreshTokens.validateAndTouch(rawRefreshToken);
-        UserEntity user = users.findById(rt.getUserId())
-                .orElseThrow(() -> new UnauthorizedException("Unknown user"));
-        String accessToken = jwt.generateAccessToken(user.getId());
-        return new AccessTokenResponse(accessToken, jwt.getAccessExpiresInSeconds());
+    public RefreshResult refresh(String rawRefreshToken) {
+        RefreshTokenService.IssuedRefreshToken rotated = refreshTokens.rotate(rawRefreshToken);
+        UUID userId = rotated.entity().getUserId();
+        if (!users.existsById(userId)) {
+            throw new UnauthorizedException("Unknown user");
+        }
+        String accessToken = jwt.generateAccessToken(userId);
+        return new RefreshResult(
+                new AccessTokenResponse(accessToken, jwt.getAccessExpiresInSeconds()),
+                rotated.rawToken());
     }
 
     @Transactional
@@ -94,4 +103,6 @@ public class AuthService {
     }
 
     public record AuthResult(UserDto user, String accessToken, long expiresInSeconds, String rawRefreshToken) {}
+
+    public record RefreshResult(AccessTokenResponse accessToken, String rawRefreshToken) {}
 }

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import api, { setAccessToken, clearAccessToken } from '../lib/apiClient'
+import { queryClient } from '../lib/queryClient'
 
 const AuthContext = createContext(null)
 
@@ -32,6 +33,10 @@ export function AuthProvider({ children }) {
     } finally {
       clearAccessToken()
       setUser(null)
+      // Drop every cached query: without this the next user to log in on this
+      // browser sees the previous user's transactions and balances until each
+      // query refetches.
+      queryClient.clear()
     }
   }, [])
 

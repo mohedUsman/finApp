@@ -26,13 +26,16 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtFilter;
+    private final AuthRateLimitFilter rateLimitFilter;
     private final String allowedOrigins;
     private final ObjectMapper objectMapper;
 
     public SecurityConfig(JwtAuthenticationFilter jwtFilter,
+                          AuthRateLimitFilter rateLimitFilter,
                           @Value("${cors.allowed-origins}") String allowedOrigins,
                           ObjectMapper objectMapper) {
         this.jwtFilter = jwtFilter;
+        this.rateLimitFilter = rateLimitFilter;
         this.allowedOrigins = allowedOrigins;
         this.objectMapper = objectMapper;
     }
@@ -47,6 +50,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**", "/actuator/health").permitAll()
                         .anyRequest().authenticated())
+                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((req, res, e) -> writeError(res, 401, "UNAUTHORIZED", "Authentication required"))
