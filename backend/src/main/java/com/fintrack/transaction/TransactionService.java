@@ -76,6 +76,12 @@ public class TransactionService {
         if (req.actualDate() != null) t.setActualDate(req.actualDate());
         if (req.note() != null) t.setNote(req.note());
 
+        // Validate the merged state, not the request: a PATCH that only flips
+        // status to ACTUAL must still leave the row with an actual amount+date,
+        // otherwise it becomes invisible to the cash lens and unconfirmable.
+        validateStatusFields(t.getStatus(), t.getExpectedAmountMinor(), t.getExpectedDate(),
+                t.getActualAmountMinor(), t.getActualDate());
+
         return toDto(t, resolveCategoryName(t.getCategoryId()));
     }
 

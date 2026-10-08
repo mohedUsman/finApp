@@ -14,8 +14,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -105,7 +107,11 @@ public class RecurringRuleService {
     @Transactional
     public GenerateResult generate(UUID userId, LocalDate throughDate) {
         ZoneId userZone = ZoneId.of("Asia/Kolkata");
-        LocalDate today = throughDate != null ? throughDate : LocalDate.now(userZone);
+        LocalDate now = LocalDate.now(userZone);
+        // throughDate only ever means "backfill up to this point"; never let it
+        // run past today, or a single request can generate decades of occurrences
+        // (a WEEKLY rule with throughDate=9999-12-31 inserts ~400k rows).
+        LocalDate today = throughDate != null && throughDate.isBefore(now) ? throughDate : now;
 
         List<RecurringRuleEntity> dueRules = rules.findDueRulesWithLock(userId, today);
 
@@ -160,7 +166,13 @@ public class RecurringRuleService {
                     int maxDay = startDate.lengthOfMonth();
                     yield startDate.withDayOfMonth(Math.min(dom, maxDay));
                 }
-                case "WEEKLY" -> startDate; // startDate is the first occurrence
+                case "WEEKLY" -> {
+                    // dayOfWeek is required by validateScheduleConfig, so honour it:
+                    // the first occurrence is startDate itself only when startDate
+                    // already falls on that weekday.
+                    int dow = config.get("dayOfWeek").asInt();
+                    yield startDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.of(dow)));
+                }
                 case "YEARLY" -> {
                     int month = config.get("month").asInt();
                     int day = config.get("day").asInt();
