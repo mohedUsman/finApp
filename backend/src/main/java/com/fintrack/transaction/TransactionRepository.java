@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,4 +33,27 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             @Param("categoryId") UUID categoryId,
             @Param("status") String status,
             Pageable pageable);
+
+    /**
+     * Planned transactions whose date has passed but were never confirmed —
+     * the user's "did I actually pay this?" list.
+     *
+     * <p>Recurring generation inserts EXPECTED rows silently. Unconfirmed ones
+     * sit in the variance figures indefinitely, so without a way to see them
+     * the reports drift further from reality every month.
+     *
+     * <p>Served by {@code ix_transactions_user_expected (user_id, expected_date)}.
+     */
+    @Query("SELECT t FROM TransactionEntity t WHERE t.userId = :userId " +
+           "AND t.status = 'EXPECTED' AND t.expectedDate < :asOf " +
+           "ORDER BY t.expectedDate ASC")
+    List<TransactionEntity> findOverdue(@Param("userId") UUID userId, @Param("asOf") LocalDate asOf);
+
+    /** Planned transactions coming due in the next few days. */
+    @Query("SELECT t FROM TransactionEntity t WHERE t.userId = :userId " +
+           "AND t.status = 'EXPECTED' AND t.expectedDate BETWEEN :from AND :to " +
+           "ORDER BY t.expectedDate ASC")
+    List<TransactionEntity> findUpcoming(@Param("userId") UUID userId,
+                                         @Param("from") LocalDate from,
+                                         @Param("to") LocalDate to);
 }

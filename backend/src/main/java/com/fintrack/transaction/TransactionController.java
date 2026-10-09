@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.UUID;
 
 @RestController
@@ -34,6 +35,14 @@ public class TransactionController {
             @RequestParam(required = false) String status,
             @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ResponseEntity.ok(transactionService.list(userId, from, to, type, categoryId, status, pageable));
+    }
+
+    @GetMapping("/pending")
+    public ResponseEntity<PendingTransactionsDto> pending(
+            @CurrentUser UUID userId,
+            @RequestParam(required = false, defaultValue = "7") int upcomingDays) {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
+        return ResponseEntity.ok(transactionService.pending(userId, today, upcomingDays));
     }
 
     @PostMapping

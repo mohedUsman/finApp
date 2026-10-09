@@ -10,6 +10,7 @@ import { queryClient } from '../../lib/queryClient'
 import { useToast } from '../../shared/ToastContext'
 import { formatCurrency } from '../../lib/format'
 import Modal from '../../shared/Modal'
+import QueryState from '../../shared/QueryState'
 import SnapshotForm from './SnapshotForm'
 import AssetCategoryForm from './AssetCategoryForm'
 
@@ -67,15 +68,25 @@ export default function NetWorthPage() {
   const [modal, setModal] = useState(null)
   const toast = useToast()
 
-  const { data: assetCats = [] } = useQuery({
+  const assetCatsQuery = useQuery({
     queryKey: ['asset-categories'],
     queryFn: () => api.get('/asset-categories').then(r => r.data),
   })
 
-  const { data: rawSnapshots = [] } = useQuery({
+  const snapshotsQuery = useQuery({
     queryKey: ['net-worth-snapshots'],
     queryFn: () => api.get('/net-worth-snapshots').then(r => r.data),
   })
+
+  const assetCats = assetCatsQuery.data ?? []
+  const rawSnapshots = snapshotsQuery.data ?? []
+
+  // Every figure on this page derives from these two queries. Showing the
+  // page while either is pending or failed would render "₹0.00" as if it
+  // were a real balance.
+  const isLoading = assetCatsQuery.isLoading || snapshotsQuery.isLoading
+  const isError = assetCatsQuery.isError || snapshotsQuery.isError
+  const loadError = assetCatsQuery.error ?? snapshotsQuery.error
 
   const deleteSnapshotMutation = useMutation({
     mutationFn: id => api.delete(`/net-worth-snapshots/${id}`),
@@ -181,6 +192,18 @@ export default function NetWorthPage() {
         </div>
       </div>
 
+      {(isLoading || isError) && (
+        <QueryState
+          isLoading={isLoading}
+          isError={isError}
+          error={loadError}
+          label="net worth"
+          onRetry={() => { assetCatsQuery.refetch(); snapshotsQuery.refetch() }}
+        />
+      )}
+
+      {!isLoading && !isError && (
+      <>
       {/* ── hero KPIs ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
 
@@ -429,6 +452,9 @@ export default function NetWorthPage() {
           </table>
         </div>
       </div>
+
+      </>
+      )}
 
       {/* ── modals ── */}
       {modal?.type === 'add-snapshot' && (

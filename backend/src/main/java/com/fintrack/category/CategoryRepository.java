@@ -20,6 +20,9 @@ public interface CategoryRepository extends JpaRepository<CategoryEntity, UUID> 
 
     Optional<CategoryEntity> findByIdAndUserId(UUID id, UUID userId);
 
+    /** All of a user's categories, for building an id -> name lookup in one query. */
+    List<CategoryEntity> findByUserId(UUID userId);
+
     boolean existsByParentIdAndUserId(UUID parentId, UUID userId);
 
     boolean existsByUserIdAndTypeAndParentIdIsNullAndNameIgnoreCase(UUID userId, String type, String name);

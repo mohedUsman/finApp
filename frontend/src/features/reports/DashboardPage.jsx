@@ -3,10 +3,12 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts'
 import { RefreshCw, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import api from '../../lib/apiClient'
-import { formatCurrency, monthName, currentYearMonth, prevMonth, nextMonth } from '../../lib/format'
+import { formatCurrency, monthName, currentYearMonth, prevMonth, nextMonth, varianceColor } from '../../lib/format'
 import KpiCard from '../../shared/KpiCard'
+import QueryState from '../../shared/QueryState'
 import { queryClient } from '../../lib/queryClient'
 import { useToast } from '../../shared/ToastContext'
+import PendingInbox from '../transactions/PendingInbox'
 
 
 function fmt(v) { return formatCurrency(v) }
@@ -20,10 +22,12 @@ export default function DashboardPage() {
   const lastDay = new Date(ym.year, ym.month, 0).getDate()
   const to      = `${ym.year}-${String(ym.month).padStart(2, '0')}-${lastDay}`
 
-  const { data: report, isLoading } = useQuery({
+  const reportQuery = useQuery({
     queryKey: ['report', 'monthly', ym.year, ym.month],
     queryFn: () => api.get(`/reports/monthly?year=${ym.year}&month=${ym.month}`).then(r => r.data),
   })
+  const report = reportQuery.data
+  const isLoading = reportQuery.isLoading
 
   // Fetch raw transactions so we can aggregate ALL categories that had cash flow,
   // including ACTUAL-only entries that have no expected_date and are invisible in byCategory.
@@ -37,6 +41,9 @@ export default function DashboardPage() {
     onSuccess: ({ data }) => {
       toast.success(`Generated ${data.generatedCount} transactions`)
       queryClient.invalidateQueries({ queryKey: ['report'] })
+      // Generation creates transactions, so the list this page aggregates
+      // (and the Transactions page) is stale too.
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
     },
     onError: () => toast.error('Generation failed'),
   })
@@ -94,8 +101,16 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="text-slate-500 text-sm">Loading…</div>
+      <PendingInbox />
+
+      {isLoading || reportQuery.isError ? (
+        <QueryState
+          isLoading={isLoading}
+          isError={reportQuery.isError}
+          error={reportQuery.error}
+          label="this month's report"
+          onRetry={() => reportQuery.refetch()}
+        />
       ) : (
         <>
           {/* KPI Grid */}
@@ -305,7 +320,7 @@ export default function DashboardPage() {
                       <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">{fmt(c.expectedAmountMinor)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-slate-200">{fmt(c.actualAmountMinor)}</td>
                       <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${
-                        c.varianceMinor >= 0 ? 'text-emerald-400' : 'text-red-400'
+                        varianceColor(c.varianceMinor, c.type)
                       }`}>{fmt(c.varianceMinor)}</td>
                     </tr>
                   ))}

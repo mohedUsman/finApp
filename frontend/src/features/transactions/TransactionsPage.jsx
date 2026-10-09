@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2, Check, Clock, CheckCircle2, Repeat, Download, Chev
 import api from '../../lib/apiClient'
 import { formatCurrency, formatDate, currentYearMonth, prevMonth, nextMonth, monthName } from '../../lib/format'
 import Modal from '../../shared/Modal'
+import QueryState from '../../shared/QueryState'
 import { useToast } from '../../shared/ToastContext'
 import { queryClient } from '../../lib/queryClient'
 import TransactionForm from './TransactionForm'
@@ -99,15 +100,19 @@ export default function TransactionsPage() {
   const lastDay = new Date(ym.year, ym.month, 0).getDate()
   const to = `${ym.year}-${String(ym.month).padStart(2, '0')}-${lastDay}`
 
-  const { data, isLoading } = useQuery({
+  const PAGE_SIZE = 200
+
+  const txQuery = useQuery({
     queryKey: ['transactions', ym.year, ym.month, typeFilter, statusFilter],
     queryFn: () => {
-      const params = new URLSearchParams({ from, to, size: 200 })
+      const params = new URLSearchParams({ from, to, size: PAGE_SIZE })
       if (typeFilter) params.set('type', typeFilter)
       if (statusFilter) params.set('status', statusFilter)
       return api.get(`/transactions?${params}`).then(r => r.data)
     },
   })
+  const data = txQuery.data
+  const isLoading = txQuery.isLoading
 
   const deleteMutation = useMutation({
     mutationFn: id => api.delete(`/transactions/${id}`),
@@ -120,6 +125,11 @@ export default function TransactionsPage() {
   })
 
   const txList = data?.content ?? []
+  // The page requests a single fixed-size page. If the month has more rows
+  // than that, the tiles below would silently understate the real totals,
+  // so say so rather than showing a confident wrong number.
+  const totalElements = data?.totalElements ?? txList.length
+  const isTruncated = totalElements > txList.length
 
   // Unique sorted category names for the dropdown (from API result before category filter)
   const categories = [...new Set(txList.map(t => t.categoryName).filter(Boolean))].sort()
@@ -170,6 +180,22 @@ export default function TransactionsPage() {
           </button>
         </div>
       </div>
+
+      {txQuery.isError && (
+        <QueryState
+          isError
+          error={txQuery.error}
+          label="transactions"
+          onRetry={() => txQuery.refetch()}
+        />
+      )}
+
+      {isTruncated && (
+        <div className="bg-amber-950/40 border border-amber-900/60 rounded-lg px-4 py-2.5 text-xs text-amber-300">
+          Showing the first {txList.length} of {totalElements} transactions for this month.
+          The totals below cover only these rows — narrow the filters to see accurate figures.
+        </div>
+      )}
 
       {!isLoading && displayList.length > 0 && (
         <div className="grid grid-cols-3 gap-3">

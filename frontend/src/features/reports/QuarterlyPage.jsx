@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import api from '../../lib/apiClient'
-import { formatCurrency, monthName } from '../../lib/format'
+import { formatCurrency, monthName, varianceColor } from '../../lib/format'
 import KpiCard from '../../shared/KpiCard'
 
 export default function QuarterlyPage() {
@@ -130,7 +130,7 @@ export default function QuarterlyPage() {
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">{formatCurrency(c.expectedAmountMinor)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-slate-200">{formatCurrency(c.actualAmountMinor)}</td>
-                      <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${c.varianceMinor >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${varianceColor(c.varianceMinor, c.type)}`}>
                         {formatCurrency(c.varianceMinor)}
                       </td>
                     </tr>
