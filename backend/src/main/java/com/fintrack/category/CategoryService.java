@@ -62,6 +62,11 @@ public class CategoryService {
         if (req.sortOrder() != null) {
             c.setSortOrder(req.sortOrder());
         }
+        if (Boolean.TRUE.equals(req.clearBudget())) {
+            c.setMonthlyBudgetMinor(null);
+        } else if (req.monthlyBudgetMinor() != null) {
+            c.setMonthlyBudgetMinor(req.monthlyBudgetMinor());
+        }
         if (req.parentId() != null) {
             if (c.isDefault()) {
                 throw new BadRequestException("CANNOT_REPARENT_DEFAULT", "Default categories cannot be reparented");
@@ -123,6 +128,6 @@ public class CategoryService {
 
     private CategoryDto toDto(CategoryEntity c) {
         return new CategoryDto(c.getId(), c.getUserId(), c.getType(), c.getName(),
-                c.getParentId(), c.isDefault(), c.isActive(), c.getSortOrder());
+                c.getParentId(), c.isDefault(), c.isActive(), c.getSortOrder(), c.getMonthlyBudgetMinor());
     }
 }

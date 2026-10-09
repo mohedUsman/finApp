@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Menu } from 'lucide-react'
 import api from '../lib/apiClient'
 
 function fmtCompact(minor) {
@@ -13,16 +14,16 @@ function fmtCompact(minor) {
 
 function QuickStat({ label, value, positive, negative }) {
   return (
-    <div>
-      <div className="text-[10px] text-slate-500 uppercase tracking-wider">{label}</div>
-      <div className={`text-sm font-semibold tabular-nums ${
+    <div className="shrink-0">
+      <div className="text-[10px] text-slate-500 uppercase tracking-wider whitespace-nowrap">{label}</div>
+      <div className={`text-sm font-semibold tabular-nums whitespace-nowrap ${
         positive ? 'text-emerald-400' : negative ? 'text-rose-400' : 'text-white'
       }`}>{value ?? '—'}</div>
     </div>
   )
 }
 
-export default function TopBar() {
+export default function TopBar({ onMenuClick }) {
   const today = new Date()
   const year  = today.getFullYear()
   const month = today.getMonth() + 1
@@ -38,12 +39,15 @@ export default function TopBar() {
   const net         = report?.netActualMinor ?? null
 
   return (
-    <div className="border-b border-slate-800 bg-slate-900/60 backdrop-blur px-6 py-3 flex items-center gap-6 sticky top-0 z-10">
-      <div>
+    <div className="border-b border-slate-800 bg-slate-900/60 backdrop-blur px-3 sm:px-6 py-3 flex items-center gap-4 sm:gap-6 sticky top-0 z-10 overflow-x-auto">
+      <button onClick={onMenuClick} className="sm:hidden text-slate-400 hover:text-white shrink-0">
+        <Menu className="w-5 h-5" />
+      </button>
+      <div className="shrink-0">
         <div className="text-[10px] text-slate-500 uppercase tracking-wider">Current Period</div>
-        <div className="text-sm font-semibold text-white">{periodLabel}</div>
+        <div className="text-sm font-semibold text-white whitespace-nowrap">{periodLabel}</div>
       </div>
-      <div className="h-8 w-px bg-slate-800" />
+      <div className="h-8 w-px bg-slate-800 shrink-0 hidden sm:block" />
       <QuickStat label="Cash Income"  value={fmtCompact(report?.totalActualIncomeMinor)}  positive />
       <QuickStat label="Cash Expense" value={fmtCompact(report?.totalActualExpenseMinor)} negative />
       <QuickStat
@@ -52,9 +56,9 @@ export default function TopBar() {
         positive={net != null && net >= 0}
         negative={net != null && net < 0}
       />
-      <div className="h-8 w-px bg-slate-800" />
+      <div className="h-8 w-px bg-slate-800 shrink-0 hidden sm:block" />
       <QuickStat label="Open Planned" value={report?.expectedTransactionCount ?? '—'} />
-      <div className="ml-auto text-xs text-slate-500">{todayStr}</div>
+      <div className="ml-auto text-xs text-slate-500 whitespace-nowrap hidden md:block">{todayStr}</div>
     </div>
   )
 }

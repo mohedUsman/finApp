@@ -77,66 +77,70 @@ export default function QuarterlyPage() {
           {/* Month Breakdown Table */}
           <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800 text-sm font-medium text-slate-300">Month Breakdown</div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-800">
-                  <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Month</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Actual Income</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Actual Expense</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Net</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Planned Net</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data?.monthBreakdown.map(m => (
-                  <tr key={m.month} className="border-b border-slate-800/50">
-                    <td className="px-4 py-2.5 text-slate-300 font-medium">{monthName(m.month)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-emerald-400">{formatCurrency(m.actualIncomeMinor)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-red-400">{formatCurrency(m.actualExpenseMinor)}</td>
-                    <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${m.netActualMinor >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {formatCurrency(m.netActualMinor)}
-                    </td>
-                    <td className={`px-4 py-2.5 text-right tabular-nums ${m.netExpectedMinor >= 0 ? 'text-blue-400' : 'text-amber-400'}`}>
-                      {formatCurrency(m.netExpectedMinor)}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[560px]">
+                <thead>
+                  <tr className="border-b border-slate-800">
+                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Month</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Actual Income</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Actual Expense</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Net</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Planned Net</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {data?.monthBreakdown.map(m => (
+                    <tr key={m.month} className="border-b border-slate-800/50">
+                      <td className="px-4 py-2.5 text-slate-300 font-medium">{monthName(m.month)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-emerald-400">{formatCurrency(m.actualIncomeMinor)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-red-400">{formatCurrency(m.actualExpenseMinor)}</td>
+                      <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${m.netActualMinor >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {formatCurrency(m.netActualMinor)}
+                      </td>
+                      <td className={`px-4 py-2.5 text-right tabular-nums ${m.netExpectedMinor >= 0 ? 'text-blue-400' : 'text-amber-400'}`}>
+                        {formatCurrency(m.netExpectedMinor)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Category Breakdown */}
           {data?.byCategoryQtd?.length > 0 && (
             <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-800 text-sm font-medium text-slate-300">Category Breakdown (QTD)</div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-800">
-                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Category</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Type</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Planned</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Actual</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Variance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.byCategoryQtd.map(c => (
-                    <tr key={c.categoryId} className="border-b border-slate-800/50">
-                      <td className="px-4 py-2.5 text-slate-300">{c.categoryName}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          c.type === 'INCOME' ? 'bg-emerald-900/40 text-emerald-400' : 'bg-red-900/40 text-red-400'
-                        }`}>{c.type}</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">{formatCurrency(c.expectedAmountMinor)}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-200">{formatCurrency(c.actualAmountMinor)}</td>
-                      <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${varianceColor(c.varianceMinor, c.type)}`}>
-                        {formatCurrency(c.varianceMinor)}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[560px]">
+                  <thead>
+                    <tr className="border-b border-slate-800">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Category</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Type</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Planned</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Actual</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Variance</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.byCategoryQtd.map(c => (
+                      <tr key={c.categoryId} className="border-b border-slate-800/50">
+                        <td className="px-4 py-2.5 text-slate-300">{c.categoryName}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            c.type === 'INCOME' ? 'bg-emerald-900/40 text-emerald-400' : 'bg-red-900/40 text-red-400'
+                          }`}>{c.type}</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">{formatCurrency(c.expectedAmountMinor)}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-200">{formatCurrency(c.actualAmountMinor)}</td>
+                        <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${varianceColor(c.varianceMinor, c.type)}`}>
+                          {formatCurrency(c.varianceMinor)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </>

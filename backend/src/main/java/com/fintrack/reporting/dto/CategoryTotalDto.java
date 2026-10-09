@@ -8,5 +8,6 @@ public record CategoryTotalDto(
         String type,
         long expectedAmountMinor,
         long actualAmountMinor,
-        long varianceMinor
+        long varianceMinor,
+        Long monthlyBudgetMinor
 ) {}

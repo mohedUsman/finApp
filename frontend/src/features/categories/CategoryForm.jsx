@@ -16,6 +16,7 @@ const editSchema = z.object({
   name: z.string().min(1, 'Required').max(80).optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.coerce.number().optional(),
+  monthlyBudgetMinor: z.coerce.number().min(0).optional().nullable(),
 })
 
 export default function CategoryForm({ cat, defaultType = 'EXPENSE', onDone }) {
@@ -30,7 +31,12 @@ export default function CategoryForm({ cat, defaultType = 'EXPENSE', onDone }) {
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(isEdit ? editSchema : createSchema),
     defaultValues: isEdit
-      ? { name: cat.name, isActive: cat.isActive, sortOrder: cat.sortOrder }
+      ? {
+          name: cat.name,
+          isActive: cat.isActive,
+          sortOrder: cat.sortOrder,
+          monthlyBudgetMinor: cat.monthlyBudgetMinor != null ? cat.monthlyBudgetMinor / 100 : null,
+        }
       : { type: defaultType, name: '', parentId: '' },
   })
 
@@ -47,6 +53,11 @@ export default function CategoryForm({ cat, defaultType = 'EXPENSE', onDone }) {
         if (data.name) payload.name = data.name
         if (data.isActive !== undefined) payload.isActive = data.isActive
         if (data.sortOrder !== undefined) payload.sortOrder = data.sortOrder
+        if (data.monthlyBudgetMinor == null || data.monthlyBudgetMinor === '') {
+          payload.clearBudget = true
+        } else {
+          payload.monthlyBudgetMinor = Math.round(data.monthlyBudgetMinor * 100)
+        }
         return api.patch(`/categories/${cat.id}`, payload)
       }
       return api.post('/categories', {
@@ -90,6 +101,17 @@ export default function CategoryForm({ cat, defaultType = 'EXPENSE', onDone }) {
             <option value="">None (top-level)</option>
             {parentOptions.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+        </div>
+      )}
+
+      {isEdit && cat.type === 'EXPENSE' && (
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">Monthly Budget (₹)</label>
+          <input type="number" step="0.01" {...register('monthlyBudgetMinor')}
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg"
+            placeholder="No budget set" />
+          {errors.monthlyBudgetMinor && <p className="text-red-400 text-xs mt-1">{errors.monthlyBudgetMinor.message}</p>}
+          <p className="text-slate-600 text-[11px] mt-1">Leave blank to remove the budget. Compared against confirmed spend each month on the Dashboard.</p>
         </div>
       )}
 

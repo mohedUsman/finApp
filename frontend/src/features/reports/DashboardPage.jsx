@@ -292,40 +292,83 @@ export default function DashboardPage() {
             )}
           </div>
 
+          {/* Budgets */}
+          {report?.byCategory.some(c => c.monthlyBudgetMinor != null) && (
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+              <div className="text-sm font-medium text-slate-300 mb-4">Budgets This Month</div>
+              <div className="space-y-4">
+                {report.byCategory
+                  .filter(c => c.monthlyBudgetMinor != null)
+                  .sort((a, b) => (b.actualAmountMinor / b.monthlyBudgetMinor) - (a.actualAmountMinor / a.monthlyBudgetMinor))
+                  .map(c => {
+                    const pct = c.monthlyBudgetMinor > 0 ? (c.actualAmountMinor / c.monthlyBudgetMinor) * 100 : 0
+                    const over = c.actualAmountMinor > c.monthlyBudgetMinor
+                    const barColor = over ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#10b981'
+                    return (
+                      <div key={c.categoryId}>
+                        <div className="flex items-center justify-between mb-1.5 gap-2">
+                          <span className="text-xs text-slate-400">{c.categoryName}</span>
+                          <span className="text-xs tabular-nums">
+                            <span className={over ? 'text-red-400 font-semibold' : 'text-slate-300'}>{fmt(c.actualAmountMinor)}</span>
+                            <span className="text-slate-600"> / {fmt(c.monthlyBudgetMinor)}</span>
+                          </span>
+                        </div>
+                        <div className="h-2 bg-slate-800/60 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all"
+                            style={{ width: `${Math.min(pct, 100)}%`, background: barColor }} />
+                        </div>
+                        {over && (
+                          <div className="text-[10px] text-red-400 mt-1">
+                            {fmt(c.actualAmountMinor - c.monthlyBudgetMinor)} over budget
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+
           {/* Category Breakdown Table */}
           {report?.byCategory.length > 0 && (
             <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-800">
                 <span className="text-sm font-medium text-slate-300">Category Breakdown</span>
               </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-800">
-                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Category</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Type</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Planned</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Actual</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Variance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.byCategory.map(c => (
-                    <tr key={c.categoryId} className="border-b border-slate-800/50 hover:bg-slate-800/30">
-                      <td className="px-4 py-2.5 text-slate-300">{c.categoryName}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          c.type === 'INCOME' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'
-                        }`}>{c.type}</span>
-                      </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">{fmt(c.expectedAmountMinor)}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-slate-200">{fmt(c.actualAmountMinor)}</td>
-                      <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${
-                        varianceColor(c.varianceMinor, c.type)
-                      }`}>{fmt(c.varianceMinor)}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-800">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Category</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-slate-500">Type</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Planned</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Actual</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Variance</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-slate-500">Budget</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {report.byCategory.map(c => (
+                      <tr key={c.categoryId} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                        <td className="px-4 py-2.5 text-slate-300">{c.categoryName}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            c.type === 'INCOME' ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'
+                          }`}>{c.type}</span>
+                        </td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">{fmt(c.expectedAmountMinor)}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-200">{fmt(c.actualAmountMinor)}</td>
+                        <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${
+                          varianceColor(c.varianceMinor, c.type)
+                        }`}>{fmt(c.varianceMinor)}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums text-slate-500">
+                          {c.monthlyBudgetMinor != null ? fmt(c.monthlyBudgetMinor) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </>
