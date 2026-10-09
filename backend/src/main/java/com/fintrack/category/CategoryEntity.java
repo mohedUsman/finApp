@@ -38,6 +38,9 @@ public class CategoryEntity extends BaseEntity {
     @Column(name = "sort_order", nullable = false)
     private int sortOrder = 0;
 
+    @Column(name = "monthly_budget_minor")
+    private Long monthlyBudgetMinor;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -61,4 +64,7 @@ public class CategoryEntity extends BaseEntity {
 
     public int getSortOrder() { return sortOrder; }
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
+
+    public Long getMonthlyBudgetMinor() { return monthlyBudgetMinor; }
+    public void setMonthlyBudgetMinor(Long monthlyBudgetMinor) { this.monthlyBudgetMinor = monthlyBudgetMinor; }
 }

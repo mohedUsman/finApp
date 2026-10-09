@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Plus, Edit2, Trash2, Check, Clock, CheckCircle2, Repeat, Download, ChevronDown, FileSpreadsheet, FileText, Loader2 } from 'lucide-react'
+import { Plus, Edit2, Trash2, Check, Clock, CheckCircle2, Repeat, Download, ChevronDown, FileSpreadsheet, FileText, Loader2, Upload } from 'lucide-react'
 import api from '../../lib/apiClient'
 import { formatCurrency, formatDate, currentYearMonth, prevMonth, nextMonth, monthName } from '../../lib/format'
 import Modal from '../../shared/Modal'
+import QueryState from '../../shared/QueryState'
 import { useToast } from '../../shared/ToastContext'
 import { queryClient } from '../../lib/queryClient'
 import TransactionForm from './TransactionForm'
 import ConfirmForm from './ConfirmForm'
+import CsvImportModal from './CsvImportModal'
 import { exportToExcel, exportToPdf } from './exportUtils'
 
 function StatusPill({ status }) {
@@ -99,15 +101,19 @@ export default function TransactionsPage() {
   const lastDay = new Date(ym.year, ym.month, 0).getDate()
   const to = `${ym.year}-${String(ym.month).padStart(2, '0')}-${lastDay}`
 
-  const { data, isLoading } = useQuery({
+  const PAGE_SIZE = 200
+
+  const txQuery = useQuery({
     queryKey: ['transactions', ym.year, ym.month, typeFilter, statusFilter],
     queryFn: () => {
-      const params = new URLSearchParams({ from, to, size: 200 })
+      const params = new URLSearchParams({ from, to, size: PAGE_SIZE })
       if (typeFilter) params.set('type', typeFilter)
       if (statusFilter) params.set('status', statusFilter)
       return api.get(`/transactions?${params}`).then(r => r.data)
     },
   })
+  const data = txQuery.data
+  const isLoading = txQuery.isLoading
 
   const deleteMutation = useMutation({
     mutationFn: id => api.delete(`/transactions/${id}`),
@@ -120,6 +126,11 @@ export default function TransactionsPage() {
   })
 
   const txList = data?.content ?? []
+  // The page requests a single fixed-size page. If the month has more rows
+  // than that, the tiles below would silently understate the real totals,
+  // so say so rather than showing a confident wrong number.
+  const totalElements = data?.totalElements ?? txList.length
+  const isTruncated = totalElements > txList.length
 
   // Unique sorted category names for the dropdown (from API result before category filter)
   const categories = [...new Set(txList.map(t => t.categoryName).filter(Boolean))].sort()
@@ -163,6 +174,12 @@ export default function TransactionsPage() {
           </select>
           <ExportDropdown txList={displayList} ym={ym} typeFilter={typeFilter} statusFilter={statusFilter} />
           <button
+            onClick={() => setModal({ type: 'import' })}
+            className="px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg flex items-center gap-1.5 hover:bg-slate-700 transition-colors"
+          >
+            <Upload className="w-3.5 h-3.5" /> Import
+          </button>
+          <button
             onClick={() => setModal({ type: 'add' })}
             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
           >
@@ -171,8 +188,24 @@ export default function TransactionsPage() {
         </div>
       </div>
 
+      {txQuery.isError && (
+        <QueryState
+          isError
+          error={txQuery.error}
+          label="transactions"
+          onRetry={() => txQuery.refetch()}
+        />
+      )}
+
+      {isTruncated && (
+        <div className="bg-amber-950/40 border border-amber-900/60 rounded-lg px-4 py-2.5 text-xs text-amber-300">
+          Showing the first {txList.length} of {totalElements} transactions for this month.
+          The totals below cover only these rows — narrow the filters to see accurate figures.
+        </div>
+      )}
+
       {!isLoading && displayList.length > 0 && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
             <div className="text-xs text-slate-500 mb-1">Income</div>
             <div className="text-base font-bold text-emerald-400 tabular-nums">{formatCurrency(totalIncome)}</div>
@@ -197,8 +230,8 @@ export default function TransactionsPage() {
           {txList.length > 0 ? `No transactions match the selected filters.` : 'No transactions for this period.'}
         </div>
       ) : (
-        <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-slate-800">
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">Date</th>
@@ -277,6 +310,11 @@ export default function TransactionsPage() {
       {modal?.type === 'confirm' && (
         <Modal title="Confirm Transaction" onClose={() => setModal(null)} size="sm">
           <ConfirmForm tx={modal.tx} onDone={() => setModal(null)} />
+        </Modal>
+      )}
+      {modal?.type === 'import' && (
+        <Modal title="Import Transactions" onClose={() => setModal(null)} size="lg">
+          <CsvImportModal onDone={() => setModal(null)} />
         </Modal>
       )}
     </div>

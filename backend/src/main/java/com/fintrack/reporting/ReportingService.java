@@ -120,12 +120,12 @@ public class ReportingService {
 
     @SuppressWarnings("unchecked")
     private List<CategoryTotalDto> categoryBreakdown(UUID userId, LocalDate start, LocalDate end) {
-        String sql = "SELECT t.category_id, c.name, t.type, " +
+        String sql = "SELECT t.category_id, c.name, t.type, c.monthly_budget_minor, " +
                 "COALESCE(SUM(t.expected_amount_minor), 0) AS expected_total, " +
                 "COALESCE(SUM(CASE WHEN t.status = 'ACTUAL' THEN t.actual_amount_minor ELSE 0 END), 0) AS actual_total " +
                 "FROM transactions t JOIN categories c ON t.category_id = c.id " +
                 "WHERE t.user_id = :uid AND t.expected_date BETWEEN :start AND :end " +
-                "GROUP BY t.category_id, c.name, t.type";
+                "GROUP BY t.category_id, c.name, t.type, c.monthly_budget_minor";
         List<Object[]> rows = em.createNativeQuery(sql)
                 .setParameter("uid", uuidToBytes(userId))
                 .setParameter("start", start)
@@ -135,9 +135,10 @@ public class ReportingService {
             UUID catId = bytesToUuid((byte[]) r[0]);
             String name = (String) r[1];
             String type = (String) r[2];
-            long exp = toLong(r[3]);
-            long act = toLong(r[4]);
-            return new CategoryTotalDto(catId, name, type, exp, act, act - exp);
+            Long budget = r[3] == null ? null : toLong(r[3]);
+            long exp = toLong(r[4]);
+            long act = toLong(r[5]);
+            return new CategoryTotalDto(catId, name, type, exp, act, act - exp, budget);
         }).collect(Collectors.toList());
     }
 

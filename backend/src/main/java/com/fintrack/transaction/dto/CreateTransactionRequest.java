@@ -1,5 +1,7 @@
 package com.fintrack.transaction.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -12,9 +14,9 @@ public record CreateTransactionRequest(
         @NotBlank @Pattern(regexp = "INCOME|EXPENSE") String type,
         @NotNull UUID categoryId,
         @NotBlank @Pattern(regexp = "EXPECTED|ACTUAL") String status,
-        Long expectedAmountMinor,
+        @Min(0) @Max(MoneyLimits.MAX_AMOUNT_MINOR) Long expectedAmountMinor,
         LocalDate expectedDate,
-        Long actualAmountMinor,
+        @Min(0) @Max(MoneyLimits.MAX_AMOUNT_MINOR) Long actualAmountMinor,
         LocalDate actualDate,
         @Size(max = 500) String note
 ) {}

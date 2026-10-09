@@ -12,7 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class TransactionService {
@@ -29,6 +32,24 @@ public class TransactionService {
                                       String type, UUID categoryId, String status, Pageable pageable) {
         return transactions.findByFilters(userId, from, to, type, categoryId, status, pageable)
                 .map(t -> toDto(t, resolveCategoryName(t.getCategoryId())));
+    }
+
+    /**
+     * The user's action list: planned transactions that are overdue (date
+     * passed, never confirmed) and those coming due shortly.
+     */
+    public PendingTransactionsDto pending(UUID userId, LocalDate today, int upcomingDays) {
+        List<TransactionEntity> overdue = transactions.findOverdue(userId, today);
+        List<TransactionEntity> upcoming =
+                transactions.findUpcoming(userId, today, today.plusDays(upcomingDays));
+
+        // Resolve names from one query rather than per row.
+        Map<UUID, String> names = categories.findByUserId(userId).stream()
+                .collect(Collectors.toMap(CategoryEntity::getId, CategoryEntity::getName));
+
+        return new PendingTransactionsDto(
+                overdue.stream().map(t -> toDto(t, names.getOrDefault(t.getCategoryId(), ""))).toList(),
+                upcoming.stream().map(t -> toDto(t, names.getOrDefault(t.getCategoryId(), ""))).toList());
     }
 
     @Transactional
@@ -75,6 +96,12 @@ public class TransactionService {
         if (req.actualAmountMinor() != null) t.setActualAmountMinor(req.actualAmountMinor());
         if (req.actualDate() != null) t.setActualDate(req.actualDate());
         if (req.note() != null) t.setNote(req.note());
+
+        // Validate the merged state, not the request: a PATCH that only flips
+        // status to ACTUAL must still leave the row with an actual amount+date,
+        // otherwise it becomes invisible to the cash lens and unconfirmable.
+        validateStatusFields(t.getStatus(), t.getExpectedAmountMinor(), t.getExpectedDate(),
+                t.getActualAmountMinor(), t.getActualDate());
 
         return toDto(t, resolveCategoryName(t.getCategoryId()));
     }

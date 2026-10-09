@@ -10,5 +10,6 @@ public record CategoryDto(
         UUID parentId,
         boolean isDefault,
         boolean isActive,
-        int sortOrder
+        int sortOrder,
+        Long monthlyBudgetMinor
 ) {}
