@@ -251,9 +251,15 @@ export default function TransactionsPage() {
                     {formatDate(tx.actualDate ?? tx.expectedDate)}
                   </td>
                   <td className="px-4 py-2.5 text-slate-200">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {tx.recurringRuleId && <Repeat className="w-3 h-3 text-cyan-400 shrink-0" />}
                       {tx.categoryName}
+                      {tx.tags?.map(t => (
+                        <span key={t.id}
+                          className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                          style={{ backgroundColor: `${t.color}22`, color: t.color }}
+                        >{t.name}</span>
+                      ))}
                     </div>
                   </td>
                   <td className="px-4 py-2.5">

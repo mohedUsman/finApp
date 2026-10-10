@@ -134,7 +134,17 @@ export default function SearchPage() {
                     <td className="px-4 py-2.5 text-slate-400 tabular-nums whitespace-nowrap">
                       {formatDate(tx.actualDate ?? tx.expectedDate)}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-200">{tx.categoryName}</td>
+                    <td className="px-4 py-2.5 text-slate-200">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {tx.categoryName}
+                        {tx.tags?.map(t => (
+                          <span key={t.id}
+                            className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                            style={{ backgroundColor: `${t.color}22`, color: t.color }}
+                          >{t.name}</span>
+                        ))}
+                      </div>
+                    </td>
                     <td className="px-4 py-2.5">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                         tx.type === 'INCOME' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'

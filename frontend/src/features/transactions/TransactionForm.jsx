@@ -66,6 +66,15 @@ export default function TransactionForm({ tx, onDone }) {
     queryFn: () => api.get('/categories?includeInactive=false').then(r => r.data),
   })
 
+  const { data: allTags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => api.get('/tags').then(r => r.data),
+  })
+
+  const [selectedTagIds, setSelectedTagIds] = useState(() => (tx?.tags ?? []).map(t => t.id))
+  const toggleTag = id => setSelectedTagIds(prev =>
+    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
   const initialType = tx?.type ?? 'EXPENSE'
   const initialStatus = tx?.status ?? 'ACTUAL'
 
@@ -113,6 +122,7 @@ export default function TransactionForm({ tx, onDone }) {
         expectedDate: data.expectedDate || null,
         actualDate: data.actualDate || null,
         note: data.note || null,
+        tagIds: selectedTagIds,
       }
       return isEdit
         ? api.patch(`/transactions/${tx.id}`, payload)
@@ -139,6 +149,7 @@ export default function TransactionForm({ tx, onDone }) {
           note: '',
         })
         setFocus(variables.status === 'EXPECTED' ? 'expectedAmountMinor' : 'actualAmountMinor')
+        setSelectedTagIds([])
         return
       }
       onDone()
@@ -223,6 +234,30 @@ export default function TransactionForm({ tx, onDone }) {
           className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg"
           placeholder="Optional note" />
       </div>
+
+      {allTags.length > 0 && (
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">Tags</label>
+          <div className="flex flex-wrap gap-1.5">
+            {allTags.map(t => {
+              const active = selectedTagIds.includes(t.id)
+              return (
+                <button
+                  type="button"
+                  key={t.id}
+                  onClick={() => toggleTag(t.id)}
+                  className="px-2 py-1 rounded-full text-xs font-medium border transition-colors"
+                  style={active
+                    ? { backgroundColor: `${t.color}33`, color: t.color, borderColor: t.color }
+                    : { backgroundColor: 'transparent', color: '#94a3b8', borderColor: '#334155' }}
+                >
+                  {t.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 pt-2">
         <button type="submit" disabled={isSubmitting}
