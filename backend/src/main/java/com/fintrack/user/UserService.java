@@ -62,6 +62,8 @@ public class UserService {
                 .setParameter("uid", userId).executeUpdate();
         em.createQuery("DELETE FROM RefreshTokenEntity rt WHERE rt.userId = :uid")
                 .setParameter("uid", userId).executeUpdate();
+        em.createQuery("DELETE FROM com.fintrack.auth.PasswordResetTokenEntity p WHERE p.userId = :uid")
+                .setParameter("uid", userId).executeUpdate();
 
         users.delete(user);
     }

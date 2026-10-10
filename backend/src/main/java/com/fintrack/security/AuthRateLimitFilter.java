@@ -61,7 +61,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
         // would break legitimate multi-tab use.
         String path = request.getRequestURI();
         return !("POST".equalsIgnoreCase(request.getMethod())
-                && (path.equals("/api/v1/auth/login") || path.equals("/api/v1/auth/register")));
+                && (path.equals("/api/v1/auth/login") || path.equals("/api/v1/auth/register")
+                    || path.equals("/api/v1/auth/forgot-password") || path.equals("/api/v1/auth/reset-password")));
     }
 
     @Override

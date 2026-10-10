@@ -2,8 +2,10 @@ package com.fintrack.auth;
 
 import com.fintrack.auth.dto.AccessTokenResponse;
 import com.fintrack.auth.dto.AuthResponse;
+import com.fintrack.auth.dto.ForgotPasswordRequest;
 import com.fintrack.auth.dto.LoginRequest;
 import com.fintrack.auth.dto.RegisterRequest;
+import com.fintrack.auth.dto.ResetPasswordRequest;
 import com.fintrack.common.exception.UnauthorizedException;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -27,15 +29,18 @@ public class AuthController {
     private static final String COOKIE_PATH = "/api/v1/auth";
 
     private final AuthService auth;
+    private final PasswordResetService passwordReset;
     private final boolean cookieSecure;
     private final String sameSite;
     private final long refreshDays;
 
     public AuthController(AuthService auth,
+                          PasswordResetService passwordReset,
                           @Value("${cookie.secure}") boolean cookieSecure,
                           @Value("${cookie.same-site}") String sameSite,
                           @Value("${jwt.refresh-days}") long refreshDays) {
         this.auth = auth;
+        this.passwordReset = passwordReset;
         this.cookieSecure = cookieSecure;
         this.sameSite = sameSite;
         this.refreshDays = refreshDays;
@@ -76,6 +81,18 @@ public class AuthController {
             HttpServletResponse response) {
         auth.logout(refreshCookie);
         clearRefreshCookie(response);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest req) {
+        passwordReset.requestReset(req.email());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest req) {
+        passwordReset.resetPassword(req.token(), req.password());
         return ResponseEntity.noContent().build();
     }
 
