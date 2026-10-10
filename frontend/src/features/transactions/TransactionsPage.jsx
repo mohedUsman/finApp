@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Plus, Edit2, Trash2, Check, Clock, CheckCircle2, Repeat, Download, ChevronDown, FileSpreadsheet, FileText, Loader2, Upload } from 'lucide-react'
+import { Plus, Edit2, Trash2, Check, Clock, CheckCircle2, Repeat, Download, ChevronDown, FileSpreadsheet, FileText, Loader2, Upload, X } from 'lucide-react'
 import api from '../../lib/apiClient'
 import { formatCurrency, formatDate, currentYearMonth, prevMonth, nextMonth, monthName } from '../../lib/format'
 import Modal from '../../shared/Modal'
@@ -86,16 +86,56 @@ function ExportDropdown({ txList, ym, typeFilter, statusFilter }) {
   )
 }
 
+function BulkActionBar({ count, categories, onDelete, onRecategorize, onClear, busy }) {
+  const [targetCategoryId, setTargetCategoryId] = useState('')
+
+  return (
+    <div className="flex items-center justify-between gap-3 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 flex-wrap">
+      <span className="text-sm text-slate-300">{count} selected</span>
+      <div className="flex items-center gap-2 flex-wrap">
+        <select value={targetCategoryId} onChange={e => setTargetCategoryId(e.target.value)}
+          className="px-3 py-1.5 bg-slate-900 border border-slate-700 text-slate-300 text-sm rounded-lg">
+          <option value="">Change category to…</option>
+          {categories.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <button
+          disabled={!targetCategoryId || busy}
+          onClick={() => { onRecategorize(targetCategoryId); setTargetCategoryId('') }}
+          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-200 text-sm rounded-lg transition-colors"
+        >
+          Apply
+        </button>
+        <button
+          disabled={busy}
+          onClick={onDelete}
+          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-sm rounded-lg transition-colors flex items-center gap-1.5"
+        >
+          <Trash2 className="w-3.5 h-3.5" /> Delete
+        </button>
+        <button onClick={onClear} className="p-1.5 text-slate-400 hover:text-white rounded transition-colors" title="Clear selection">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function TransactionsPage() {
   const [ym, setYm] = useState(currentYearMonth())
   const [modal, setModal] = useState(null) // null | { type: 'add'|'edit'|'confirm', tx? }
   const [typeFilter, setTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
   const toast = useToast()
 
   // Reset category selection when month or type changes (categories differ per month/type)
   useEffect(() => { setCategoryFilter('') }, [ym.year, ym.month, typeFilter])
+  // A selection scoped to one filtered view shouldn't silently carry over
+  // once the underlying row set changes.
+  useEffect(() => { setSelectedIds(new Set()) }, [ym.year, ym.month, typeFilter, statusFilter, categoryFilter])
 
   const from = `${ym.year}-${String(ym.month).padStart(2, '0')}-01`
   const lastDay = new Date(ym.year, ym.month, 0).getDate()
@@ -125,6 +165,38 @@ export default function TransactionsPage() {
     onError: () => toast.error('Delete failed'),
   })
 
+  const { data: allCategories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => api.get('/categories?includeInactive=false').then(r => r.data),
+  })
+
+  const [bulkBusy, setBulkBusy] = useState(false)
+
+  async function bulkDelete(ids) {
+    if (!confirm(`Delete ${ids.length} transaction${ids.length === 1 ? '' : 's'}? This cannot be undone.`)) return
+    setBulkBusy(true)
+    const results = await Promise.allSettled(ids.map(id => api.delete(`/transactions/${id}`)))
+    const failed = results.filter(r => r.status === 'rejected').length
+    setBulkBusy(false)
+    setSelectedIds(new Set())
+    queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    queryClient.invalidateQueries({ queryKey: ['report'] })
+    if (failed) toast.error(`${ids.length - failed} deleted, ${failed} failed`)
+    else toast.success(`${ids.length} transaction${ids.length === 1 ? '' : 's'} deleted`)
+  }
+
+  async function bulkRecategorize(ids, categoryId) {
+    setBulkBusy(true)
+    const results = await Promise.allSettled(ids.map(id => api.patch(`/transactions/${id}`, { categoryId })))
+    const failed = results.filter(r => r.status === 'rejected').length
+    setBulkBusy(false)
+    setSelectedIds(new Set())
+    queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    queryClient.invalidateQueries({ queryKey: ['report'] })
+    if (failed) toast.error(`${ids.length - failed} updated, ${failed} failed (category type must match)`)
+    else toast.success(`${ids.length} transaction${ids.length === 1 ? '' : 's'} recategorized`)
+  }
+
   const txList = data?.content ?? []
   // The page requests a single fixed-size page. If the month has more rows
   // than that, the tiles below would silently understate the real totals,
@@ -141,6 +213,25 @@ export default function TransactionsPage() {
   const totalIncome  = displayList.filter(t => t.type === 'INCOME'  && t.status === 'ACTUAL').reduce((s, t) => s + Number(t.actualAmountMinor ?? 0), 0)
   const totalExpense = displayList.filter(t => t.type === 'EXPENSE' && t.status === 'ACTUAL').reduce((s, t) => s + Number(t.actualAmountMinor ?? 0), 0)
   const net = totalIncome - totalExpense
+
+  const allSelected = displayList.length > 0 && displayList.every(t => selectedIds.has(t.id))
+  function toggleSelectAll() {
+    setSelectedIds(allSelected ? new Set() : new Set(displayList.map(t => t.id)))
+  }
+  function toggleRow(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+  // Bulk recategorize only works when every selected row shares a type, since
+  // categories are type-scoped — mixed selections could otherwise silently
+  // fail per-row against the server's category/type validation.
+  const selectedTxs = displayList.filter(t => selectedIds.has(t.id))
+  const selectedType = selectedTxs.length > 0 && selectedTxs.every(t => t.type === selectedTxs[0].type)
+    ? selectedTxs[0].type : null
+  const recategorizeOptions = selectedType ? allCategories.filter(c => c.type === selectedType) : []
 
   return (
     <div className="space-y-4">
@@ -197,6 +288,17 @@ export default function TransactionsPage() {
         />
       )}
 
+      {selectedIds.size > 0 && (
+        <BulkActionBar
+          count={selectedIds.size}
+          categories={recategorizeOptions}
+          busy={bulkBusy}
+          onClear={() => setSelectedIds(new Set())}
+          onDelete={() => bulkDelete([...selectedIds])}
+          onRecategorize={categoryId => bulkRecategorize([...selectedIds], categoryId)}
+        />
+      )}
+
       {isTruncated && (
         <div className="bg-amber-950/40 border border-amber-900/60 rounded-lg px-4 py-2.5 text-xs text-amber-300">
           Showing the first {txList.length} of {totalElements} transactions for this month.
@@ -234,6 +336,10 @@ export default function TransactionsPage() {
           <table className="w-full text-sm min-w-[720px]">
             <thead>
               <tr className="border-b border-slate-800">
+                <th className="px-4 py-2.5 text-left w-8">
+                  <input type="checkbox" checked={allSelected} onChange={toggleSelectAll}
+                    className="rounded border-slate-600 bg-slate-800" />
+                </th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">Date</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">Category</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-500">Type</th>
@@ -246,7 +352,11 @@ export default function TransactionsPage() {
             </thead>
             <tbody>
               {displayList.map(tx => (
-                <tr key={tx.id} className="border-b border-slate-800/50 hover:bg-slate-800/20">
+                <tr key={tx.id} className={`border-b border-slate-800/50 hover:bg-slate-800/20 ${selectedIds.has(tx.id) ? 'bg-slate-800/40' : ''}`}>
+                  <td className="px-4 py-2.5">
+                    <input type="checkbox" checked={selectedIds.has(tx.id)} onChange={() => toggleRow(tx.id)}
+                      className="rounded border-slate-600 bg-slate-800" />
+                  </td>
                   <td className="px-4 py-2.5 text-slate-400 tabular-nums whitespace-nowrap">
                     {formatDate(tx.actualDate ?? tx.expectedDate)}
                   </td>
