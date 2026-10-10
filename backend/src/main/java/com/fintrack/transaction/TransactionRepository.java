@@ -74,6 +74,21 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
            "ORDER BY t.expectedDate ASC")
     List<TransactionEntity> findOverdue(@Param("userId") UUID userId, @Param("asOf") LocalDate asOf);
 
+    /**
+     * Whether a statement row has already been imported. Same date, amount,
+     * type and description is the strongest signal available — a bank CSV
+     * carries no stable per-transaction id to match on.
+     */
+    @Query("SELECT CASE WHEN COUNT(t) > 0 THEN TRUE ELSE FALSE END FROM TransactionEntity t " +
+           "WHERE t.userId = :userId AND t.type = :type AND t.status = 'ACTUAL' " +
+           "AND t.actualAmountMinor = :amountMinor AND t.actualDate = :date " +
+           "AND t.note = :note")
+    boolean existsImported(@Param("userId") UUID userId,
+                           @Param("type") String type,
+                           @Param("amountMinor") Long amountMinor,
+                           @Param("date") LocalDate date,
+                           @Param("note") String note);
+
     /** Planned transactions coming due in the next few days. */
     @Query("SELECT t FROM TransactionEntity t WHERE t.userId = :userId " +
            "AND t.status = 'EXPECTED' AND t.expectedDate BETWEEN :from AND :to " +

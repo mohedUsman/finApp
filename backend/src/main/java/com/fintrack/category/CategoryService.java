@@ -6,6 +6,7 @@ import com.fintrack.category.dto.UpdateCategoryRequest;
 import com.fintrack.common.exception.BadRequestException;
 import com.fintrack.common.exception.ConflictException;
 import com.fintrack.common.exception.NotFoundException;
+import com.fintrack.importing.ImportRuleRepository;
 import com.fintrack.transaction.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,10 +20,13 @@ public class CategoryService {
 
     private final CategoryRepository categories;
     private final TransactionRepository transactions;
+    private final ImportRuleRepository importRules;
 
-    public CategoryService(CategoryRepository categories, TransactionRepository transactions) {
+    public CategoryService(CategoryRepository categories, TransactionRepository transactions,
+                           ImportRuleRepository importRules) {
         this.categories = categories;
         this.transactions = transactions;
+        this.importRules = importRules;
     }
 
     public List<CategoryDto> list(UUID userId, String type, boolean includeInactive) {
@@ -89,6 +93,12 @@ public class CategoryService {
         }
         if (transactions.existsByCategoryId(id)) {
             throw new ConflictException("CATEGORY_IN_USE", "Category has transactions. Deactivate it instead.");
+        }
+        // import_rules.category_id is RESTRICT, so without this the delete
+        // surfaces as a raw constraint violation instead of a clear message.
+        if (importRules.existsByCategoryId(id)) {
+            throw new ConflictException("CATEGORY_IN_USE",
+                    "Category is used by an import rule. Remove the rule first.");
         }
         categories.delete(c);
     }

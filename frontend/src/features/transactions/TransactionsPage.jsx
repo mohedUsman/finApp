@@ -441,7 +441,7 @@ export default function TransactionsPage() {
         </Modal>
       )}
       {modal?.type === 'import' && (
-        <Modal title="Import Transactions" onClose={() => setModal(null)} size="lg">
+        <Modal title="Re-import a FinTrack export" onClose={() => setModal(null)} size="lg">
           <CsvImportModal onDone={() => setModal(null)} />
         </Modal>
       )}

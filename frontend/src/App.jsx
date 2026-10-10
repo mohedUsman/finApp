@@ -18,6 +18,7 @@ import RangeReportPage from './features/reports/RangeReportPage'
 import TagsPage from './features/tags/TagsPage'
 import YearOverYearPage from './features/reports/YearOverYearPage'
 import SettingsPage from './features/settings/SettingsPage'
+import BankImportPage from './features/importing/BankImportPage'
 
 function App() {
   const { loading } = useAuth()
@@ -54,6 +55,7 @@ function App() {
         <Route path="/reports/range" element={<RangeReportPage />} />
         <Route path="/tags" element={<TagsPage />} />
         <Route path="/reports/yoy" element={<YearOverYearPage />} />
+        <Route path="/import" element={<BankImportPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
     </Routes>

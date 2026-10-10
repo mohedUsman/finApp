@@ -157,6 +157,10 @@ export default function CsvImportModal({ onDone }) {
             Category names must match an existing category exactly (case-insensitive). This is the same layout produced by
             the Excel export, so an exported file can be re-imported unchanged.
           </p>
+          <p className="text-xs text-slate-500">
+            Importing a statement downloaded from your bank? Use <span className="text-slate-300">Bank Import</span> in
+            the sidebar instead — it maps arbitrary columns and categorises merchants for you.
+          </p>
           <button
             onClick={() => fileRef.current?.click()}
             className="w-full py-8 border-2 border-dashed border-slate-700 rounded-lg flex flex-col items-center gap-2 text-slate-400 hover:border-slate-600 hover:text-slate-300 transition-colors"
