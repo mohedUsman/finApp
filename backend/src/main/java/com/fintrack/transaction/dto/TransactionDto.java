@@ -1,7 +1,10 @@
 package com.fintrack.transaction.dto;
 
+import com.fintrack.tag.dto.TagDto;
+
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public record TransactionDto(
@@ -20,5 +23,6 @@ public record TransactionDto(
         String occurrenceKey,
         Instant confirmedAt,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        List<TagDto> tags
 ) {}

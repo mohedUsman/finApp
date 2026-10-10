@@ -49,7 +49,10 @@ public class UserService {
         }
 
         // Explicit deletion order to respect FK RESTRICT constraints:
-        // transactions and recurring_rules reference categories (RESTRICT), so they go first.
+        // transactions, recurring_rules and import_rules reference categories
+        // (RESTRICT), so they go first.
+        em.createQuery("DELETE FROM com.fintrack.importing.ImportRuleEntity ir WHERE ir.userId = :uid")
+                .setParameter("uid", userId).executeUpdate();
         em.createQuery("DELETE FROM TransactionEntity t WHERE t.userId = :uid")
                 .setParameter("uid", userId).executeUpdate();
         em.createQuery("DELETE FROM RecurringRuleEntity r WHERE r.userId = :uid")
@@ -61,6 +64,15 @@ public class UserService {
         em.createQuery("DELETE FROM AssetCategoryEntity a WHERE a.userId = :uid")
                 .setParameter("uid", userId).executeUpdate();
         em.createQuery("DELETE FROM RefreshTokenEntity rt WHERE rt.userId = :uid")
+                .setParameter("uid", userId).executeUpdate();
+        em.createQuery("DELETE FROM com.fintrack.auth.PasswordResetTokenEntity p WHERE p.userId = :uid")
+                .setParameter("uid", userId).executeUpdate();
+        em.createQuery("DELETE FROM com.fintrack.currency.ExchangeRateEntity x WHERE x.userId = :uid")
+                .setParameter("uid", userId).executeUpdate();
+        em.createQuery("DELETE FROM com.fintrack.household.HouseholdMemberEntity hm "
+                        + "WHERE hm.ownerUserId = :uid OR hm.memberUserId = :uid")
+                .setParameter("uid", userId).executeUpdate();
+        em.createQuery("DELETE FROM com.fintrack.household.HouseholdInviteEntity hi WHERE hi.ownerUserId = :uid")
                 .setParameter("uid", userId).executeUpdate();
 
         users.delete(user);

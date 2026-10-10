@@ -61,6 +61,7 @@ public class RecurringRuleService {
         r.setUserId(userId);
         r.setType(req.type());
         r.setCategoryId(req.categoryId());
+        if (req.currencyCode() != null) r.setCurrencyCode(req.currencyCode());
         r.setDefaultExpectedAmountMinor(req.defaultExpectedAmountMinor());
         r.setNoteTemplate(req.noteTemplate());
         r.setScheduleType(req.scheduleType());
@@ -81,6 +82,7 @@ public class RecurringRuleService {
             requireCategory(userId, req.categoryId(), r.getType());
             r.setCategoryId(req.categoryId());
         }
+        if (req.currencyCode() != null) r.setCurrencyCode(req.currencyCode());
         if (req.defaultExpectedAmountMinor() != null) r.setDefaultExpectedAmountMinor(req.defaultExpectedAmountMinor());
         if (req.noteTemplate() != null) r.setNoteTemplate(req.noteTemplate());
         if (req.scheduleType() != null && req.scheduleConfig() != null) {
@@ -155,6 +157,19 @@ public class RecurringRuleService {
         }
 
         return new GenerateResult(generated, skipped, advanced);
+    }
+
+    /** Upcoming occurrence dates for a not-yet-saved schedule, for preview before committing. */
+    public List<LocalDate> previewOccurrences(String scheduleType, String scheduleConfig,
+                                               LocalDate startDate, LocalDate endDate, int count) {
+        validateScheduleConfig(scheduleType, scheduleConfig);
+        List<LocalDate> occurrences = new java.util.ArrayList<>();
+        LocalDate current = computeFirstRunDate(scheduleType, scheduleConfig, startDate);
+        while (occurrences.size() < count && (endDate == null || !current.isAfter(endDate))) {
+            occurrences.add(current);
+            current = nextOccurrence(current, scheduleType, scheduleConfig);
+        }
+        return occurrences;
     }
 
     private LocalDate computeFirstRunDate(String scheduleType, String scheduleConfig, LocalDate startDate) {

@@ -4,6 +4,11 @@ import com.fintrack.category.CategoryEntity;
 import com.fintrack.category.CategoryRepository;
 import com.fintrack.common.exception.BadRequestException;
 import com.fintrack.common.exception.NotFoundException;
+import com.fintrack.tag.TagEntity;
+import com.fintrack.tag.TagRepository;
+import com.fintrack.tag.TransactionTagEntity;
+import com.fintrack.tag.TransactionTagRepository;
+import com.fintrack.tag.dto.TagDto;
 import com.fintrack.transaction.dto.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,8 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -22,16 +30,32 @@ public class TransactionService {
 
     private final TransactionRepository transactions;
     private final CategoryRepository categories;
+    private final TagRepository tags;
+    private final TransactionTagRepository transactionTags;
 
-    public TransactionService(TransactionRepository transactions, CategoryRepository categories) {
+    public TransactionService(TransactionRepository transactions, CategoryRepository categories,
+                               TagRepository tags, TransactionTagRepository transactionTags) {
         this.transactions = transactions;
         this.categories = categories;
+        this.tags = tags;
+        this.transactionTags = transactionTags;
     }
 
     public Page<TransactionDto> list(UUID userId, LocalDate from, LocalDate to,
                                       String type, UUID categoryId, String status, Pageable pageable) {
-        return transactions.findByFilters(userId, from, to, type, categoryId, status, pageable)
-                .map(t -> toDto(t, resolveCategoryName(t.getCategoryId())));
+        Page<TransactionEntity> page = transactions.findByFilters(userId, from, to, type, categoryId, status, pageable);
+        Map<UUID, List<TagDto>> tagsByTx = resolveTagsByTransaction(page.getContent());
+        return page.map(t -> toDto(t, resolveCategoryName(t.getCategoryId()), tagsByTx.getOrDefault(t.getId(), List.of())));
+    }
+
+    /** Global search, not scoped to a single month: note text plus amount range. */
+    public Page<TransactionDto> search(UUID userId, LocalDate from, LocalDate to, String type,
+                                        UUID categoryId, String status, String note,
+                                        Long minAmount, Long maxAmount, Pageable pageable) {
+        Page<TransactionEntity> page =
+                transactions.search(userId, from, to, type, categoryId, status, note, minAmount, maxAmount, pageable);
+        Map<UUID, List<TagDto>> tagsByTx = resolveTagsByTransaction(page.getContent());
+        return page.map(t -> toDto(t, resolveCategoryName(t.getCategoryId()), tagsByTx.getOrDefault(t.getId(), List.of())));
     }
 
     /**
@@ -47,9 +71,15 @@ public class TransactionService {
         Map<UUID, String> names = categories.findByUserId(userId).stream()
                 .collect(Collectors.toMap(CategoryEntity::getId, CategoryEntity::getName));
 
+        List<TransactionEntity> all = new ArrayList<>(overdue);
+        all.addAll(upcoming);
+        Map<UUID, List<TagDto>> tagsByTx = resolveTagsByTransaction(all);
+
         return new PendingTransactionsDto(
-                overdue.stream().map(t -> toDto(t, names.getOrDefault(t.getCategoryId(), ""))).toList(),
-                upcoming.stream().map(t -> toDto(t, names.getOrDefault(t.getCategoryId(), ""))).toList());
+                overdue.stream().map(t -> toDto(t, names.getOrDefault(t.getCategoryId(), ""),
+                        tagsByTx.getOrDefault(t.getId(), List.of()))).toList(),
+                upcoming.stream().map(t -> toDto(t, names.getOrDefault(t.getCategoryId(), ""),
+                        tagsByTx.getOrDefault(t.getId(), List.of()))).toList());
     }
 
     @Transactional
@@ -63,7 +93,7 @@ public class TransactionService {
         t.setUserId(userId);
         t.setType(req.type());
         t.setCategoryId(req.categoryId());
-        t.setCurrencyCode("INR");
+        t.setCurrencyCode(req.currencyCode() != null ? req.currencyCode() : "INR");
         t.setStatus(req.status());
         t.setExpectedAmountMinor(req.expectedAmountMinor());
         t.setExpectedDate(req.expectedDate());
@@ -74,7 +104,8 @@ public class TransactionService {
             t.setConfirmedAt(Instant.now());
         }
         transactions.save(t);
-        return toDto(t, cat.getName());
+        saveTagAssociations(t.getId(), req.tagIds());
+        return toDto(t, cat.getName(), resolveTags(t.getId()));
     }
 
     @Transactional
@@ -91,6 +122,7 @@ public class TransactionService {
                 t.setConfirmedAt(Instant.now());
             }
         }
+        if (req.currencyCode() != null) t.setCurrencyCode(req.currencyCode());
         if (req.expectedAmountMinor() != null) t.setExpectedAmountMinor(req.expectedAmountMinor());
         if (req.expectedDate() != null) t.setExpectedDate(req.expectedDate());
         if (req.actualAmountMinor() != null) t.setActualAmountMinor(req.actualAmountMinor());
@@ -103,7 +135,12 @@ public class TransactionService {
         validateStatusFields(t.getStatus(), t.getExpectedAmountMinor(), t.getExpectedDate(),
                 t.getActualAmountMinor(), t.getActualDate());
 
-        return toDto(t, resolveCategoryName(t.getCategoryId()));
+        if (req.tagIds() != null) {
+            transactionTags.deleteByTransactionId(t.getId());
+            saveTagAssociations(t.getId(), req.tagIds());
+        }
+
+        return toDto(t, resolveCategoryName(t.getCategoryId()), resolveTags(t.getId()));
     }
 
     @Transactional
@@ -117,7 +154,7 @@ public class TransactionService {
         t.setActualDate(req.actualDate());
         if (req.note() != null) t.setNote(req.note());
         t.setConfirmedAt(Instant.now());
-        return toDto(t, resolveCategoryName(t.getCategoryId()));
+        return toDto(t, resolveCategoryName(t.getCategoryId()), resolveTags(t.getId()));
     }
 
     @Transactional
@@ -162,10 +199,51 @@ public class TransactionService {
         return categories.findById(categoryId).map(CategoryEntity::getName).orElse("");
     }
 
-    private TransactionDto toDto(TransactionEntity t, String categoryName) {
+    private TransactionDto toDto(TransactionEntity t, String categoryName, List<TagDto> tagDtos) {
         return new TransactionDto(t.getId(), t.getType(), t.getCategoryId(), categoryName,
                 t.getCurrencyCode(), t.getStatus(), t.getExpectedAmountMinor(), t.getExpectedDate(),
                 t.getActualAmountMinor(), t.getActualDate(), t.getNote(), t.getRecurringRuleId(),
-                t.getOccurrenceKey(), t.getConfirmedAt(), t.getCreatedAt(), t.getUpdatedAt());
+                t.getOccurrenceKey(), t.getConfirmedAt(), t.getCreatedAt(), t.getUpdatedAt(), tagDtos);
+    }
+
+    private void saveTagAssociations(UUID transactionId, List<UUID> tagIds) {
+        if (tagIds == null || tagIds.isEmpty()) return;
+        for (UUID tagId : tagIds) {
+            TransactionTagEntity tt = new TransactionTagEntity();
+            tt.setTransactionId(transactionId);
+            tt.setTagId(tagId);
+            transactionTags.save(tt);
+        }
+    }
+
+    private List<TagDto> resolveTags(UUID transactionId) {
+        List<UUID> tagIds = transactionTags.findByTransactionId(transactionId).stream()
+                .map(TransactionTagEntity::getTagId).toList();
+        if (tagIds.isEmpty()) return List.of();
+        return tags.findAllById(tagIds).stream()
+                .map(tg -> new TagDto(tg.getId(), tg.getName(), tg.getColor()))
+                .toList();
+    }
+
+    private Map<UUID, List<TagDto>> resolveTagsByTransaction(List<TransactionEntity> txs) {
+        if (txs.isEmpty()) return Map.of();
+        List<UUID> txIds = txs.stream().map(TransactionEntity::getId).toList();
+        List<Object[]> links = transactionTags.findByTransactionIdIn(txIds);
+        if (links.isEmpty()) return Map.of();
+
+        Set<UUID> tagIds = links.stream().map(row -> (UUID) row[1]).collect(Collectors.toSet());
+        Map<UUID, TagDto> tagById = tags.findAllById(tagIds).stream()
+                .collect(Collectors.toMap(TagEntity::getId, tg -> new TagDto(tg.getId(), tg.getName(), tg.getColor())));
+
+        Map<UUID, List<TagDto>> result = new HashMap<>();
+        for (Object[] row : links) {
+            UUID txId = (UUID) row[0];
+            UUID tagId = (UUID) row[1];
+            TagDto dto = tagById.get(tagId);
+            if (dto != null) {
+                result.computeIfAbsent(txId, k -> new ArrayList<>()).add(dto);
+            }
+        }
+        return result;
     }
 }

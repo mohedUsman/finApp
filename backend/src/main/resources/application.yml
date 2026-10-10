@@ -21,6 +21,13 @@ spring:
     baseline-on-migrate: false
   jackson:
     default-property-inclusion: non_null
+  servlet:
+    multipart:
+      # Bank statement CSV upload. ImportController rejects anything over
+      # 5 MB with a readable error, so these must not be lower or the
+      # framework rejects it first with a raw 500.
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 server:
   port: 8080

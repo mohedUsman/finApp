@@ -6,10 +6,12 @@ import { useState } from 'react'
 import api from '../../lib/apiClient'
 import { queryClient } from '../../lib/queryClient'
 import { useToast } from '../../shared/ToastContext'
+import { CURRENCIES } from '../../lib/currencies'
 
 const schema = z.object({
   type: z.enum(['INCOME', 'EXPENSE']),
   categoryId: z.string().uuid('Select a category'),
+  currencyCode: z.string().length(3),
   defaultExpectedAmountMinor: z.coerce.number().min(0),
   noteTemplate: z.string().max(500).optional(),
   scheduleType: z.enum(['MONTHLY', 'WEEKLY', 'YEARLY']),
@@ -42,6 +44,7 @@ export default function RecurringForm({ rule, onDone }) {
     defaultValues: {
       type: rule?.type ?? 'EXPENSE',
       categoryId: rule?.categoryId ?? '',
+      currencyCode: rule?.currencyCode ?? 'INR',
       defaultExpectedAmountMinor: rule ? rule.defaultExpectedAmountMinor / 100 : '',
       noteTemplate: rule?.noteTemplate ?? '',
       scheduleType: rule?.scheduleType ?? 'MONTHLY',
@@ -70,6 +73,7 @@ export default function RecurringForm({ rule, onDone }) {
       const payload = {
         type: data.type,
         categoryId: data.categoryId,
+        currencyCode: data.currencyCode,
         defaultExpectedAmountMinor: Math.round(data.defaultExpectedAmountMinor * 100),
         noteTemplate: data.noteTemplate || null,
         scheduleType: data.scheduleType,
@@ -107,6 +111,13 @@ export default function RecurringForm({ rule, onDone }) {
           </select>
           {errors.categoryId && <p className="text-red-400 text-xs mt-1">{errors.categoryId.message}</p>}
         </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-slate-400 mb-1">Currency</label>
+        <select {...register('currencyCode')} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg">
+          {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
       <div>

@@ -1,16 +1,23 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { LayoutDashboard, Receipt, Repeat, Calendar, Wallet, Tags, LogOut, Trash2, X } from 'lucide-react'
+import { LayoutDashboard, Receipt, Repeat, Calendar, Wallet, Tags, LogOut, Trash2, X, PiggyBank, Search, CalendarRange, Hash, GitCompare, Settings, Upload } from 'lucide-react'
 import DeleteAccountModal from './DeleteAccountModal'
 
 const nav = [
-  { to: '/dashboard',    label: 'Dashboard',    Icon: LayoutDashboard },
-  { to: '/networth',     label: 'Net Worth',    Icon: Wallet },
-  { to: '/transactions', label: 'Transactions', Icon: Receipt },
-  { to: '/recurring',    label: 'Recurring',    Icon: Repeat },
-  { to: '/quarterly',    label: 'Quarterly',    Icon: Calendar },
-  { to: '/categories',   label: 'Categories',   Icon: Tags },
+  { to: '/dashboard',       label: 'Dashboard',      Icon: LayoutDashboard },
+  { to: '/networth',        label: 'Net Worth',      Icon: Wallet },
+  { to: '/transactions',    label: 'Transactions',   Icon: Receipt },
+  { to: '/search',          label: 'Search',         Icon: Search },
+  { to: '/recurring',       label: 'Recurring',      Icon: Repeat },
+  { to: '/savings-goals',   label: 'Savings Goals',  Icon: PiggyBank },
+  { to: '/quarterly',       label: 'Quarterly',      Icon: Calendar },
+  { to: '/reports/range',   label: 'Custom Range',   Icon: CalendarRange },
+  { to: '/reports/yoy',     label: 'Year over Year', Icon: GitCompare },
+  { to: '/categories',      label: 'Categories',     Icon: Tags },
+  { to: '/tags',            label: 'Tags',           Icon: Hash },
+  { to: '/import',          label: 'Bank Import',    Icon: Upload },
+  { to: '/settings',        label: 'Settings',       Icon: Settings },
 ]
 
 export default function Sidebar({ open, onClose }) {

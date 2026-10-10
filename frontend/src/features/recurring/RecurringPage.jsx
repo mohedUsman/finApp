@@ -106,7 +106,7 @@ export default function RecurringPage() {
                   </td>
                   <td className="px-4 py-2.5 text-slate-300 text-xs">{formatSchedule(r)}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-200 font-medium">
-                    {formatCurrency(r.defaultExpectedAmountMinor)}
+                    {formatCurrency(r.defaultExpectedAmountMinor, r.currencyCode)}
                   </td>
                   <td className="px-4 py-2.5 text-slate-400 tabular-nums">{formatDate(r.nextRunDate)}</td>
                   <td className="px-4 py-2.5">

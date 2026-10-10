@@ -5,6 +5,7 @@ import { UploadCloud, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import api from '../../lib/apiClient'
 import { queryClient } from '../../lib/queryClient'
 import { useToast } from '../../shared/ToastContext'
+import { checkBudgetAlert } from '../../lib/budgetAlert'
 
 function toIsoDate(raw) {
   if (raw == null || raw === '') return null
@@ -137,6 +138,11 @@ export default function CsvImportModal({ onDone }) {
     queryClient.invalidateQueries({ queryKey: ['report'] })
     if (fail === 0) toast.success(`Imported ${ok} transaction${ok === 1 ? '' : 's'}`)
     else toast.error(`Imported ${ok}, ${fail} failed`)
+
+    const expenseCategoryIds = [...new Set(
+      valid.filter(r => r.payload.type === 'EXPENSE' && r.payload.status === 'ACTUAL').map(r => r.payload.categoryId)
+    )]
+    expenseCategoryIds.forEach(id => checkBudgetAlert(id, toast))
   }
 
   const validCount = rows?.filter(r => r.payload).length ?? 0
@@ -150,6 +156,10 @@ export default function CsvImportModal({ onDone }) {
             Upload a CSV with columns: <code className="text-slate-300">Date, Category, Type, Status, Note, Planned (Rs.), Actual (Rs.)</code>.
             Category names must match an existing category exactly (case-insensitive). This is the same layout produced by
             the Excel export, so an exported file can be re-imported unchanged.
+          </p>
+          <p className="text-xs text-slate-500">
+            Importing a statement downloaded from your bank? Use <span className="text-slate-300">Bank Import</span> in
+            the sidebar instead — it maps arbitrary columns and categorises merchants for you.
           </p>
           <button
             onClick={() => fileRef.current?.click()}

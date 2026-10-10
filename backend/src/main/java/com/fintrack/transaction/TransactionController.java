@@ -1,6 +1,6 @@
 package com.fintrack.transaction;
 
-import com.fintrack.security.CurrentUser;
+import com.fintrack.security.DataOwner;
 import com.fintrack.transaction.dto.*;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -27,7 +27,7 @@ public class TransactionController {
 
     @GetMapping
     public ResponseEntity<Page<TransactionDto>> list(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String type,
@@ -37,9 +37,25 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.list(userId, from, to, type, categoryId, status, pageable));
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<Page<TransactionDto>> search(
+            @DataOwner UUID userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String note,
+            @RequestParam(required = false) Long minAmount,
+            @RequestParam(required = false) Long maxAmount,
+            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(transactionService.search(userId, from, to, type, categoryId, status,
+                note, minAmount, maxAmount, pageable));
+    }
+
     @GetMapping("/pending")
     public ResponseEntity<PendingTransactionsDto> pending(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @RequestParam(required = false, defaultValue = "7") int upcomingDays) {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
         return ResponseEntity.ok(transactionService.pending(userId, today, upcomingDays));
@@ -47,14 +63,14 @@ public class TransactionController {
 
     @PostMapping
     public ResponseEntity<TransactionDto> create(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @Valid @RequestBody CreateTransactionRequest req) {
         return ResponseEntity.ok(transactionService.create(userId, req));
     }
 
     @PatchMapping("/{id}")
     public ResponseEntity<TransactionDto> update(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateTransactionRequest req) {
         return ResponseEntity.ok(transactionService.update(id, userId, req));
@@ -62,7 +78,7 @@ public class TransactionController {
 
     @PostMapping("/{id}/confirm")
     public ResponseEntity<TransactionDto> confirm(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id,
             @Valid @RequestBody ConfirmTransactionRequest req) {
         return ResponseEntity.ok(transactionService.confirm(id, userId, req));
@@ -70,7 +86,7 @@ public class TransactionController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id) {
         transactionService.delete(id, userId);
         return ResponseEntity.noContent().build();

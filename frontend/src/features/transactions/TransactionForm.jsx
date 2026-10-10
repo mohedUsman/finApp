@@ -7,11 +7,14 @@ import api from '../../lib/apiClient'
 import { queryClient } from '../../lib/queryClient'
 import { todayISO } from '../../lib/format'
 import { useToast } from '../../shared/ToastContext'
+import { checkBudgetAlert } from '../../lib/budgetAlert'
+import { CURRENCIES } from '../../lib/currencies'
 
 const schema = z.object({
   type: z.enum(['INCOME', 'EXPENSE']),
   categoryId: z.string().uuid('Pick a category'),
   status: z.enum(['EXPECTED', 'ACTUAL']),
+  currencyCode: z.string().length(3),
   expectedAmountMinor: z.coerce.number().min(0).optional().nullable(),
   expectedDate: z.string().optional().nullable(),
   actualAmountMinor: z.coerce.number().min(0).optional().nullable(),
@@ -65,6 +68,15 @@ export default function TransactionForm({ tx, onDone }) {
     queryFn: () => api.get('/categories?includeInactive=false').then(r => r.data),
   })
 
+  const { data: allTags = [] } = useQuery({
+    queryKey: ['tags'],
+    queryFn: () => api.get('/tags').then(r => r.data),
+  })
+
+  const [selectedTagIds, setSelectedTagIds] = useState(() => (tx?.tags ?? []).map(t => t.id))
+  const toggleTag = id => setSelectedTagIds(prev =>
+    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
   const initialType = tx?.type ?? 'EXPENSE'
   const initialStatus = tx?.status ?? 'ACTUAL'
 
@@ -74,6 +86,7 @@ export default function TransactionForm({ tx, onDone }) {
       type: initialType,
       categoryId: tx?.categoryId ?? (isEdit ? '' : readLastCategory(initialType)),
       status: initialStatus,
+      currencyCode: tx?.currencyCode ?? 'INR',
       expectedAmountMinor: tx?.expectedAmountMinor != null ? tx.expectedAmountMinor / 100 : null,
       // Today is overwhelmingly the right date for a new entry, and it was
       // previously the one field the user retyped every single time.
@@ -112,6 +125,7 @@ export default function TransactionForm({ tx, onDone }) {
         expectedDate: data.expectedDate || null,
         actualDate: data.actualDate || null,
         note: data.note || null,
+        tagIds: selectedTagIds,
       }
       return isEdit
         ? api.patch(`/transactions/${tx.id}`, payload)
@@ -121,6 +135,10 @@ export default function TransactionForm({ tx, onDone }) {
       toast.success(isEdit ? 'Transaction updated' : 'Transaction added')
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['report'] })
+
+      if (variables.type === 'EXPENSE' && variables.status === 'ACTUAL') {
+        checkBudgetAlert(variables.categoryId, toast)
+      }
 
       if (!isEdit) writeLastCategory(variables.type, variables.categoryId)
 
@@ -134,6 +152,7 @@ export default function TransactionForm({ tx, onDone }) {
           note: '',
         })
         setFocus(variables.status === 'EXPECTED' ? 'expectedAmountMinor' : 'actualAmountMinor')
+        setSelectedTagIds([])
         return
       }
       onDone()
@@ -158,6 +177,13 @@ export default function TransactionForm({ tx, onDone }) {
             <option value="EXPECTED">Expected</option>
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-slate-400 mb-1">Currency</label>
+        <select {...register('currencyCode')} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg">
+          {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
       <div>
@@ -218,6 +244,30 @@ export default function TransactionForm({ tx, onDone }) {
           className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg"
           placeholder="Optional note" />
       </div>
+
+      {allTags.length > 0 && (
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">Tags</label>
+          <div className="flex flex-wrap gap-1.5">
+            {allTags.map(t => {
+              const active = selectedTagIds.includes(t.id)
+              return (
+                <button
+                  type="button"
+                  key={t.id}
+                  onClick={() => toggleTag(t.id)}
+                  className="px-2 py-1 rounded-full text-xs font-medium border transition-colors"
+                  style={active
+                    ? { backgroundColor: `${t.color}33`, color: t.color, borderColor: t.color }
+                    : { backgroundColor: 'transparent', color: '#94a3b8', borderColor: '#334155' }}
+                >
+                  {t.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2 pt-2">
         <button type="submit" disabled={isSubmitting}

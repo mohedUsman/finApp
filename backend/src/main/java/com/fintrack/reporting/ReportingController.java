@@ -2,10 +2,13 @@ package com.fintrack.reporting;
 
 import com.fintrack.reporting.dto.MonthlyReportResponse;
 import com.fintrack.reporting.dto.QuarterlyReportResponse;
-import com.fintrack.security.CurrentUser;
+import com.fintrack.reporting.dto.RangeReportResponse;
+import com.fintrack.security.DataOwner;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
@@ -20,7 +23,7 @@ public class ReportingController {
 
     @GetMapping("/monthly")
     public ResponseEntity<MonthlyReportResponse> monthly(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @RequestParam int year,
             @RequestParam int month) {
         return ResponseEntity.ok(reportingService.monthly(userId, year, month));
@@ -28,9 +31,17 @@ public class ReportingController {
 
     @GetMapping("/quarterly")
     public ResponseEntity<QuarterlyReportResponse> quarterly(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @RequestParam int year,
             @RequestParam int quarter) {
         return ResponseEntity.ok(reportingService.quarterly(userId, year, quarter));
+    }
+
+    @GetMapping("/range")
+    public ResponseEntity<RangeReportResponse> range(
+            @DataOwner UUID userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ResponseEntity.ok(reportingService.range(userId, from, to));
     }
 }

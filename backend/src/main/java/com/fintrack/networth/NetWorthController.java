@@ -1,7 +1,7 @@
 package com.fintrack.networth;
 
 import com.fintrack.networth.dto.*;
-import com.fintrack.security.CurrentUser;
+import com.fintrack.security.DataOwner;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,20 +22,20 @@ public class NetWorthController {
     }
 
     @GetMapping("/asset-categories")
-    public ResponseEntity<List<AssetCategoryDto>> listAssetCategories(@CurrentUser UUID userId) {
+    public ResponseEntity<List<AssetCategoryDto>> listAssetCategories(@DataOwner UUID userId) {
         return ResponseEntity.ok(assetCategoryService.list(userId));
     }
 
     @PostMapping("/asset-categories")
     public ResponseEntity<AssetCategoryDto> createAssetCategory(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @Valid @RequestBody CreateAssetCategoryRequest req) {
         return ResponseEntity.ok(assetCategoryService.create(userId, req));
     }
 
     @PatchMapping("/asset-categories/{id}")
     public ResponseEntity<AssetCategoryDto> updateAssetCategory(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateAssetCategoryRequest req) {
         return ResponseEntity.ok(assetCategoryService.update(id, userId, req));
@@ -43,27 +43,27 @@ public class NetWorthController {
 
     @DeleteMapping("/asset-categories/{id}")
     public ResponseEntity<Void> deleteAssetCategory(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id) {
         assetCategoryService.delete(id, userId);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/net-worth-snapshots")
-    public ResponseEntity<List<NetWorthSnapshotDto>> listSnapshots(@CurrentUser UUID userId) {
+    public ResponseEntity<List<NetWorthSnapshotDto>> listSnapshots(@DataOwner UUID userId) {
         return ResponseEntity.ok(netWorthService.list(userId));
     }
 
     @PostMapping("/net-worth-snapshots")
     public ResponseEntity<NetWorthSnapshotDto> createSnapshot(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @Valid @RequestBody CreateSnapshotRequest req) {
         return ResponseEntity.ok(netWorthService.create(userId, req));
     }
 
     @PatchMapping("/net-worth-snapshots/{id}")
     public ResponseEntity<NetWorthSnapshotDto> updateSnapshot(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateSnapshotRequest req) {
         return ResponseEntity.ok(netWorthService.update(id, userId, req));
@@ -71,7 +71,7 @@ public class NetWorthController {
 
     @DeleteMapping("/net-worth-snapshots/{id}")
     public ResponseEntity<Void> deleteSnapshot(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id) {
         netWorthService.delete(id, userId);
         return ResponseEntity.noContent().build();
