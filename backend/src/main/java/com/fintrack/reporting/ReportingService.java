@@ -96,10 +96,19 @@ public class ReportingService {
                 actualIncome - actualExpense, expectedIncome - expectedExpense, byCategory, dailyActual, totalVariance);
     }
 
+    // Amounts are stored in their transaction's own currency. To sum them
+    // meaningfully they're converted into the user's base currency using their
+    // manually-entered exchange_rates (joined, never looked up in Java, to
+    // keep reporting pure SQL). A transaction in the base currency, or any
+    // currency with no rate on file, is treated as rate 1 (no conversion).
+    private static final String FX_JOIN =
+            "LEFT JOIN exchange_rates fx ON fx.user_id = t.user_id AND fx.currency_code = t.currency_code ";
+
     private long sumActual(UUID userId, String type, LocalDate start, LocalDate end) {
-        String sql = "SELECT COALESCE(SUM(actual_amount_minor), 0) FROM transactions " +
-                "WHERE user_id = :uid AND type = :type AND status = 'ACTUAL' " +
-                "AND actual_date BETWEEN :start AND :end";
+        String sql = "SELECT COALESCE(SUM(ROUND(t.actual_amount_minor * COALESCE(fx.rate_to_base, 1))), 0) " +
+                "FROM transactions t " + FX_JOIN +
+                "WHERE t.user_id = :uid AND t.type = :type AND t.status = 'ACTUAL' " +
+                "AND t.actual_date BETWEEN :start AND :end";
         Object result = em.createNativeQuery(sql)
                 .setParameter("uid", uuidToBytes(userId))
                 .setParameter("type", type)
@@ -110,8 +119,9 @@ public class ReportingService {
     }
 
     private long sumExpected(UUID userId, String type, LocalDate start, LocalDate end) {
-        String sql = "SELECT COALESCE(SUM(expected_amount_minor), 0) FROM transactions " +
-                "WHERE user_id = :uid AND type = :type AND expected_date BETWEEN :start AND :end";
+        String sql = "SELECT COALESCE(SUM(ROUND(t.expected_amount_minor * COALESCE(fx.rate_to_base, 1))), 0) " +
+                "FROM transactions t " + FX_JOIN +
+                "WHERE t.user_id = :uid AND t.type = :type AND t.expected_date BETWEEN :start AND :end";
         Object result = em.createNativeQuery(sql)
                 .setParameter("uid", uuidToBytes(userId))
                 .setParameter("type", type)
@@ -136,9 +146,9 @@ public class ReportingService {
     @SuppressWarnings("unchecked")
     private List<CategoryTotalDto> categoryBreakdown(UUID userId, LocalDate start, LocalDate end) {
         String sql = "SELECT t.category_id, c.name, t.type, c.monthly_budget_minor, " +
-                "COALESCE(SUM(t.expected_amount_minor), 0) AS expected_total, " +
-                "COALESCE(SUM(CASE WHEN t.status = 'ACTUAL' THEN t.actual_amount_minor ELSE 0 END), 0) AS actual_total " +
-                "FROM transactions t JOIN categories c ON t.category_id = c.id " +
+                "COALESCE(SUM(ROUND(t.expected_amount_minor * COALESCE(fx.rate_to_base, 1))), 0) AS expected_total, " +
+                "COALESCE(SUM(CASE WHEN t.status = 'ACTUAL' THEN ROUND(t.actual_amount_minor * COALESCE(fx.rate_to_base, 1)) ELSE 0 END), 0) AS actual_total " +
+                "FROM transactions t JOIN categories c ON t.category_id = c.id " + FX_JOIN +
                 "WHERE t.user_id = :uid AND t.expected_date BETWEEN :start AND :end " +
                 "GROUP BY t.category_id, c.name, t.type, c.monthly_budget_minor";
         List<Object[]> rows = em.createNativeQuery(sql)
@@ -159,11 +169,12 @@ public class ReportingService {
 
     @SuppressWarnings("unchecked")
     private List<DailyTrendDto> dailyActualTrend(UUID userId, LocalDate start, LocalDate end) {
-        String sql = "SELECT actual_date, " +
-                "COALESCE(SUM(CASE WHEN type='INCOME' THEN actual_amount_minor ELSE 0 END),0) AS income, " +
-                "COALESCE(SUM(CASE WHEN type='EXPENSE' THEN actual_amount_minor ELSE 0 END),0) AS expense " +
-                "FROM transactions WHERE user_id = :uid AND status = 'ACTUAL' " +
-                "AND actual_date BETWEEN :start AND :end GROUP BY actual_date ORDER BY actual_date";
+        String sql = "SELECT t.actual_date, " +
+                "COALESCE(SUM(CASE WHEN t.type='INCOME' THEN ROUND(t.actual_amount_minor * COALESCE(fx.rate_to_base, 1)) ELSE 0 END),0) AS income, " +
+                "COALESCE(SUM(CASE WHEN t.type='EXPENSE' THEN ROUND(t.actual_amount_minor * COALESCE(fx.rate_to_base, 1)) ELSE 0 END),0) AS expense " +
+                "FROM transactions t " + FX_JOIN +
+                "WHERE t.user_id = :uid AND t.status = 'ACTUAL' " +
+                "AND t.actual_date BETWEEN :start AND :end GROUP BY t.actual_date ORDER BY t.actual_date";
         List<Object[]> rows = em.createNativeQuery(sql)
                 .setParameter("uid", uuidToBytes(userId))
                 .setParameter("start", start)
@@ -176,11 +187,12 @@ public class ReportingService {
 
     @SuppressWarnings("unchecked")
     private List<DailyTrendDto> dailyExpectedTrend(UUID userId, LocalDate start, LocalDate end) {
-        String sql = "SELECT expected_date, " +
-                "COALESCE(SUM(CASE WHEN type='INCOME' THEN expected_amount_minor ELSE 0 END),0) AS income, " +
-                "COALESCE(SUM(CASE WHEN type='EXPENSE' THEN expected_amount_minor ELSE 0 END),0) AS expense " +
-                "FROM transactions WHERE user_id = :uid " +
-                "AND expected_date BETWEEN :start AND :end GROUP BY expected_date ORDER BY expected_date";
+        String sql = "SELECT t.expected_date, " +
+                "COALESCE(SUM(CASE WHEN t.type='INCOME' THEN ROUND(t.expected_amount_minor * COALESCE(fx.rate_to_base, 1)) ELSE 0 END),0) AS income, " +
+                "COALESCE(SUM(CASE WHEN t.type='EXPENSE' THEN ROUND(t.expected_amount_minor * COALESCE(fx.rate_to_base, 1)) ELSE 0 END),0) AS expense " +
+                "FROM transactions t " + FX_JOIN +
+                "WHERE t.user_id = :uid " +
+                "AND t.expected_date BETWEEN :start AND :end GROUP BY t.expected_date ORDER BY t.expected_date";
         List<Object[]> rows = em.createNativeQuery(sql)
                 .setParameter("uid", uuidToBytes(userId))
                 .setParameter("start", start)

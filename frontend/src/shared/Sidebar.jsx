@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { LayoutDashboard, Receipt, Repeat, Calendar, Wallet, Tags, LogOut, Trash2, X, PiggyBank, Search, CalendarRange, Hash, GitCompare } from 'lucide-react'
+import { LayoutDashboard, Receipt, Repeat, Calendar, Wallet, Tags, LogOut, Trash2, X, PiggyBank, Search, CalendarRange, Hash, GitCompare, Settings } from 'lucide-react'
 import DeleteAccountModal from './DeleteAccountModal'
 
 const nav = [
@@ -16,6 +16,7 @@ const nav = [
   { to: '/reports/yoy',     label: 'Year over Year', Icon: GitCompare },
   { to: '/categories',      label: 'Categories',     Icon: Tags },
   { to: '/tags',            label: 'Tags',           Icon: Hash },
+  { to: '/settings',        label: 'Settings',       Icon: Settings },
 ]
 
 export default function Sidebar({ open, onClose }) {

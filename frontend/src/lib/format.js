@@ -1,13 +1,27 @@
-const inrFmt = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-})
+const fmtCache = new Map()
 
-export function formatCurrency(minorUnits) {
+function currencyFormatter(currencyCode) {
+  const code = currencyCode || 'INR'
+  if (!fmtCache.has(code)) {
+    fmtCache.set(code, new Intl.NumberFormat(code === 'INR' ? 'en-IN' : 'en-US', {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }))
+  }
+  return fmtCache.get(code)
+}
+
+/** currencyCode defaults to INR for backward compatibility with pre-multi-currency call sites. */
+export function formatCurrency(minorUnits, currencyCode) {
   if (minorUnits == null) return '—'
-  return inrFmt.format(Number(minorUnits) / 100)
+  try {
+    return currencyFormatter(currencyCode).format(Number(minorUnits) / 100)
+  } catch {
+    // Unknown/unsupported ISO code — fall back to a plain numeric + code label.
+    return `${(Number(minorUnits) / 100).toFixed(2)} ${currencyCode || 'INR'}`
+  }
 }
 
 export function formatDate(dateStr) {

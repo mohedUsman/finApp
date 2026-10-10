@@ -210,6 +210,12 @@ export default function TransactionsPage() {
   // Category filter applied client-side (type/status already filtered by API)
   const displayList = categoryFilter ? txList.filter(t => t.categoryName === categoryFilter) : txList
 
+  // These tiles sum raw minor units client-side (unlike the server reports,
+  // which convert via exchange_rates), so a mix of currencies in view would
+  // silently add incompatible units. Only show the tiles when everything on
+  // screen shares one currency.
+  const currenciesInView = new Set(displayList.map(t => t.currencyCode ?? 'INR'))
+  const singleCurrency = currenciesInView.size <= 1 ? [...currenciesInView][0] ?? 'INR' : null
   const totalIncome  = displayList.filter(t => t.type === 'INCOME'  && t.status === 'ACTUAL').reduce((s, t) => s + Number(t.actualAmountMinor ?? 0), 0)
   const totalExpense = displayList.filter(t => t.type === 'EXPENSE' && t.status === 'ACTUAL').reduce((s, t) => s + Number(t.actualAmountMinor ?? 0), 0)
   const net = totalIncome - totalExpense
@@ -307,22 +313,28 @@ export default function TransactionsPage() {
       )}
 
       {!isLoading && displayList.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
-            <div className="text-xs text-slate-500 mb-1">Income</div>
-            <div className="text-base font-bold text-emerald-400 tabular-nums">{formatCurrency(totalIncome)}</div>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
-            <div className="text-xs text-slate-500 mb-1">Expense</div>
-            <div className="text-base font-bold text-rose-400 tabular-nums">{formatCurrency(totalExpense)}</div>
-          </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
-            <div className="text-xs text-slate-500 mb-1">Net</div>
-            <div className={`text-base font-bold tabular-nums ${net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {formatCurrency(net)}
+        singleCurrency ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
+              <div className="text-xs text-slate-500 mb-1">Income</div>
+              <div className="text-base font-bold text-emerald-400 tabular-nums">{formatCurrency(totalIncome, singleCurrency)}</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
+              <div className="text-xs text-slate-500 mb-1">Expense</div>
+              <div className="text-base font-bold text-rose-400 tabular-nums">{formatCurrency(totalExpense, singleCurrency)}</div>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
+              <div className="text-xs text-slate-500 mb-1">Net</div>
+              <div className={`text-base font-bold tabular-nums ${net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {formatCurrency(net, singleCurrency)}
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-amber-950/40 border border-amber-900/60 rounded-lg px-4 py-2.5 text-xs text-amber-300">
+            This view mixes multiple currencies, so income/expense/net totals aren't shown here — see Dashboard for base-currency-converted totals.
+          </div>
+        )
       )}
 
       {isLoading ? (
@@ -379,10 +391,10 @@ export default function TransactionsPage() {
                   </td>
                   <td className="px-4 py-2.5"><StatusPill status={tx.status} /></td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">
-                    {formatCurrency(tx.expectedAmountMinor)}
+                    {formatCurrency(tx.expectedAmountMinor, tx.currencyCode)}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-medium text-slate-200">
-                    {formatCurrency(tx.actualAmountMinor)}
+                    {formatCurrency(tx.actualAmountMinor, tx.currencyCode)}
                   </td>
                   <td className="px-4 py-2.5 text-slate-500 max-w-[120px] truncate">{tx.note ?? '—'}</td>
                   <td className="px-4 py-2.5">

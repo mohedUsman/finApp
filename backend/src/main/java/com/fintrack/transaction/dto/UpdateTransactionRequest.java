@@ -12,6 +12,7 @@ import java.util.UUID;
 public record UpdateTransactionRequest(
         UUID categoryId,
         @Pattern(regexp = "EXPECTED|ACTUAL") String status,
+        @Pattern(regexp = "[A-Z]{3}") String currencyCode,
         @Min(0) @Max(MoneyLimits.MAX_AMOUNT_MINOR) Long expectedAmountMinor,
         LocalDate expectedDate,
         @Min(0) @Max(MoneyLimits.MAX_AMOUNT_MINOR) Long actualAmountMinor,

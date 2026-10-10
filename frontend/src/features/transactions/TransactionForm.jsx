@@ -8,11 +8,13 @@ import { queryClient } from '../../lib/queryClient'
 import { todayISO } from '../../lib/format'
 import { useToast } from '../../shared/ToastContext'
 import { checkBudgetAlert } from '../../lib/budgetAlert'
+import { CURRENCIES } from '../../lib/currencies'
 
 const schema = z.object({
   type: z.enum(['INCOME', 'EXPENSE']),
   categoryId: z.string().uuid('Pick a category'),
   status: z.enum(['EXPECTED', 'ACTUAL']),
+  currencyCode: z.string().length(3),
   expectedAmountMinor: z.coerce.number().min(0).optional().nullable(),
   expectedDate: z.string().optional().nullable(),
   actualAmountMinor: z.coerce.number().min(0).optional().nullable(),
@@ -84,6 +86,7 @@ export default function TransactionForm({ tx, onDone }) {
       type: initialType,
       categoryId: tx?.categoryId ?? (isEdit ? '' : readLastCategory(initialType)),
       status: initialStatus,
+      currencyCode: tx?.currencyCode ?? 'INR',
       expectedAmountMinor: tx?.expectedAmountMinor != null ? tx.expectedAmountMinor / 100 : null,
       // Today is overwhelmingly the right date for a new entry, and it was
       // previously the one field the user retyped every single time.
@@ -174,6 +177,13 @@ export default function TransactionForm({ tx, onDone }) {
             <option value="EXPECTED">Expected</option>
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-slate-400 mb-1">Currency</label>
+        <select {...register('currencyCode')} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-slate-100 text-sm rounded-lg">
+          {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
       <div>

@@ -93,7 +93,7 @@ public class TransactionService {
         t.setUserId(userId);
         t.setType(req.type());
         t.setCategoryId(req.categoryId());
-        t.setCurrencyCode("INR");
+        t.setCurrencyCode(req.currencyCode() != null ? req.currencyCode() : "INR");
         t.setStatus(req.status());
         t.setExpectedAmountMinor(req.expectedAmountMinor());
         t.setExpectedDate(req.expectedDate());
@@ -122,6 +122,7 @@ public class TransactionService {
                 t.setConfirmedAt(Instant.now());
             }
         }
+        if (req.currencyCode() != null) t.setCurrencyCode(req.currencyCode());
         if (req.expectedAmountMinor() != null) t.setExpectedAmountMinor(req.expectedAmountMinor());
         if (req.expectedDate() != null) t.setExpectedDate(req.expectedDate());
         if (req.actualAmountMinor() != null) t.setActualAmountMinor(req.actualAmountMinor());
