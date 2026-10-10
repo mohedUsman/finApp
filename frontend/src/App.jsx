@@ -14,6 +14,7 @@ import SavingsGoalsPage from './features/goals/SavingsGoalsPage'
 import SearchPage from './features/transactions/SearchPage'
 import RangeReportPage from './features/reports/RangeReportPage'
 import TagsPage from './features/tags/TagsPage'
+import YearOverYearPage from './features/reports/YearOverYearPage'
 
 function App() {
   const { loading } = useAuth()
@@ -47,6 +48,7 @@ function App() {
         <Route path="/search" element={<SearchPage />} />
         <Route path="/reports/range" element={<RangeReportPage />} />
         <Route path="/tags" element={<TagsPage />} />
+        <Route path="/reports/yoy" element={<YearOverYearPage />} />
       </Route>
     </Routes>
   )
