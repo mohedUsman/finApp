@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts'
-import { RefreshCw, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { RefreshCw, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Settings, ArrowUp, ArrowDown, Eye, EyeOff } from 'lucide-react'
 import api from '../../lib/apiClient'
 import { formatCurrency, monthName, currentYearMonth, prevMonth, nextMonth, varianceColor } from '../../lib/format'
 import KpiCard from '../../shared/KpiCard'
 import QueryState from '../../shared/QueryState'
+import Modal from '../../shared/Modal'
 import { queryClient } from '../../lib/queryClient'
 import { useToast } from '../../shared/ToastContext'
 import PendingInbox from '../transactions/PendingInbox'
@@ -13,10 +14,98 @@ import PendingInbox from '../transactions/PendingInbox'
 
 function fmt(v) { return formatCurrency(v) }
 
+const LAYOUT_KEY = 'fintrack:dashboardLayout'
+const DEFAULT_SECTIONS = [
+  { key: 'kpis',      label: 'KPI Cards',               visible: true },
+  { key: 'summary',   label: 'Monthly Summary',         visible: true },
+  { key: 'trend',     label: 'Daily Cash Flow',         visible: true },
+  { key: 'variance',  label: 'Planned vs Actual Chart', visible: true },
+  { key: 'budgets',   label: 'Budgets',                 visible: true },
+  { key: 'breakdown', label: 'Category Breakdown Table',visible: true },
+]
+
+function readLayout() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY))
+    if (!Array.isArray(saved)) return DEFAULT_SECTIONS
+    // Merge in any new default sections a future release might add, and
+    // drop ones that no longer exist, so a stale saved layout never hides
+    // new dashboard content or crashes on an unknown key.
+    const byKey = new Map(saved.map(s => [s.key, s]))
+    const merged = DEFAULT_SECTIONS
+      .filter(d => byKey.has(d.key))
+      .map(d => ({ ...d, visible: byKey.get(d.key).visible }))
+    const knownKeys = new Set(DEFAULT_SECTIONS.map(d => d.key))
+    const ordered = saved.filter(s => knownKeys.has(s.key)).map(s => merged.find(m => m.key === s.key))
+    const missing = DEFAULT_SECTIONS.filter(d => !byKey.has(d.key))
+    return [...ordered, ...missing]
+  } catch {
+    return DEFAULT_SECTIONS
+  }
+}
+
+function writeLayout(sections) {
+  try {
+    localStorage.setItem(LAYOUT_KEY, JSON.stringify(sections))
+  } catch {
+    // Private mode or disabled storage — customization just won't persist.
+  }
+}
+
+function CustomizeModal({ sections, onChange, onClose }) {
+  function move(index, dir) {
+    const next = [...sections]
+    const target = index + dir
+    if (target < 0 || target >= next.length) return
+    ;[next[index], next[target]] = [next[target], next[index]]
+    onChange(next)
+  }
+  function toggle(index) {
+    const next = [...sections]
+    next[index] = { ...next[index], visible: !next[index].visible }
+    onChange(next)
+  }
+
+  return (
+    <Modal title="Customize Dashboard" onClose={onClose} size="sm">
+      <div className="space-y-1.5">
+        {sections.map((s, i) => (
+          <div key={s.key} className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-800 rounded-lg">
+            <span className={`text-sm ${s.visible ? 'text-slate-200' : 'text-slate-500'}`}>{s.label}</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => move(i, -1)} disabled={i === 0}
+                className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded disabled:opacity-30 disabled:hover:bg-transparent" title="Move up">
+                <ArrowUp className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => move(i, 1)} disabled={i === sections.length - 1}
+                className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded disabled:opacity-30 disabled:hover:bg-transparent" title="Move down">
+                <ArrowDown className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => toggle(i)}
+                className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded" title={s.visible ? 'Hide' : 'Show'}>
+                {s.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Modal>
+  )
+}
+
 
 export default function DashboardPage() {
   const [ym, setYm] = useState(currentYearMonth())
+  const [sections, setSections] = useState(readLayout)
+  const [showCustomize, setShowCustomize] = useState(false)
   const toast = useToast()
+
+  function updateSections(next) {
+    setSections(next)
+    writeLayout(next)
+  }
+  const isVisible = key => sections.find(s => s.key === key)?.visible ?? true
+  const sectionOrder = sections.map(s => s.key)
 
   const from    = `${ym.year}-${String(ym.month).padStart(2, '0')}-01`
   const lastDay = new Date(ym.year, ym.month, 0).getDate()
@@ -92,13 +181,21 @@ export default function DashboardPage() {
           <button onClick={() => setYm(p => nextMonth(p.year, p.month))}
             className="p-1.5 rounded hover:bg-slate-800 text-slate-400">›</button>
         </div>
-        <button
-          onClick={() => generateMutation.mutate()}
-          disabled={generateMutation.isPending}
-          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-sm rounded-md transition-colors disabled:opacity-50 flex items-center gap-1.5"
-        >
-          <RefreshCw className="w-4 h-4" /> Generate Recurring
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCustomize(true)}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-md transition-colors flex items-center gap-1.5"
+          >
+            <Settings className="w-4 h-4" /> Customize
+          </button>
+          <button
+            onClick={() => generateMutation.mutate()}
+            disabled={generateMutation.isPending}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-sm rounded-md transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-4 h-4" /> Generate Recurring
+          </button>
+        </div>
       </div>
 
       <PendingInbox />
@@ -113,7 +210,12 @@ export default function DashboardPage() {
         />
       ) : (
         <>
-          {/* KPI Grid */}
+        {(() => {
+          const sectionNodes = {}
+
+          // KPI Grid
+          sectionNodes.kpis = (
+          <div className="space-y-3">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KpiCard label="Planned Income"  value={fmt(report?.totalExpectedIncomeMinor)}  icon={ArrowUpRight}   color="emerald" muted sub="By expected date" />
             <KpiCard label="Cash Income"     value={fmt(report?.totalActualIncomeMinor)}    icon={TrendingUp}     color="emerald"       sub="By actual date" />
@@ -139,8 +241,11 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+          </div>
+          )
 
-          {/* Monthly Summary */}
+          // Monthly Summary
+          sectionNodes.summary = (
           <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
               <span className="text-sm font-medium text-slate-300">Monthly Summary</span>
@@ -255,8 +360,10 @@ export default function DashboardPage() {
               )
             })()}
           </div>
+          )
 
-          {/* Daily Cash Flow */}
+          // Daily Cash Flow
+          sectionNodes.trend = (
           <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
             <div className="text-sm font-medium text-slate-300 mb-4">Daily Cash Flow</div>
             <ResponsiveContainer width="100%" height={200}>
@@ -271,8 +378,10 @@ export default function DashboardPage() {
               </LineChart>
             </ResponsiveContainer>
           </div>
+          )
 
-          {/* Category Variance */}
+          // Category Variance
+          sectionNodes.variance = (
           <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
             <div className="text-sm font-medium text-slate-300 mb-4">Planned vs Actual by Category</div>
             {varianceData.length > 0 ? (
@@ -291,9 +400,10 @@ export default function DashboardPage() {
               <div className="h-[220px] flex items-center justify-center text-slate-600 text-sm">No data for this month</div>
             )}
           </div>
+          )
 
-          {/* Budgets */}
-          {report?.byCategory.some(c => c.monthlyBudgetMinor != null) && (
+          // Budgets
+          sectionNodes.budgets = report?.byCategory.some(c => c.monthlyBudgetMinor != null) && (
             <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
               <div className="text-sm font-medium text-slate-300 mb-4">Budgets This Month</div>
               <div className="space-y-4">
@@ -327,10 +437,10 @@ export default function DashboardPage() {
                   })}
               </div>
             </div>
-          )}
+          )
 
-          {/* Category Breakdown Table */}
-          {report?.byCategory.length > 0 && (
+          // Category Breakdown Table
+          sectionNodes.breakdown = report?.byCategory.length > 0 && (
             <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-800">
                 <span className="text-sm font-medium text-slate-300">Category Breakdown</span>
@@ -370,8 +480,17 @@ export default function DashboardPage() {
                 </table>
               </div>
             </div>
-          )}
+          )
+
+          return sectionOrder
+            .filter(key => isVisible(key) && sectionNodes[key])
+            .map(key => <div key={key}>{sectionNodes[key]}</div>)
+        })()}
         </>
+      )}
+
+      {showCustomize && (
+        <CustomizeModal sections={sections} onChange={updateSections} onClose={() => setShowCustomize(false)} />
       )}
     </div>
   )
