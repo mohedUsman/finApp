@@ -1,7 +1,7 @@
 package com.fintrack.goal;
 
 import com.fintrack.goal.dto.*;
-import com.fintrack.security.CurrentUser;
+import com.fintrack.security.DataOwner;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,20 +20,20 @@ public class SavingsGoalController {
     }
 
     @GetMapping
-    public ResponseEntity<List<SavingsGoalDto>> list(@CurrentUser UUID userId) {
+    public ResponseEntity<List<SavingsGoalDto>> list(@DataOwner UUID userId) {
         return ResponseEntity.ok(savingsGoalService.list(userId));
     }
 
     @PostMapping
     public ResponseEntity<SavingsGoalDto> create(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @Valid @RequestBody CreateSavingsGoalRequest req) {
         return ResponseEntity.ok(savingsGoalService.create(userId, req));
     }
 
     @PatchMapping("/{id}")
     public ResponseEntity<SavingsGoalDto> update(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateSavingsGoalRequest req) {
         return ResponseEntity.ok(savingsGoalService.update(id, userId, req));
@@ -41,7 +41,7 @@ public class SavingsGoalController {
 
     @PostMapping("/{id}/contribute")
     public ResponseEntity<SavingsGoalDto> contribute(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id,
             @Valid @RequestBody ContributeRequest req) {
         return ResponseEntity.ok(savingsGoalService.contribute(id, userId, req));
@@ -49,7 +49,7 @@ public class SavingsGoalController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id) {
         savingsGoalService.delete(id, userId);
         return ResponseEntity.noContent().build();

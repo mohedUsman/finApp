@@ -1,6 +1,6 @@
 package com.fintrack.transaction;
 
-import com.fintrack.security.CurrentUser;
+import com.fintrack.security.DataOwner;
 import com.fintrack.transaction.dto.*;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -27,7 +27,7 @@ public class TransactionController {
 
     @GetMapping
     public ResponseEntity<Page<TransactionDto>> list(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String type,
@@ -39,7 +39,7 @@ public class TransactionController {
 
     @GetMapping("/search")
     public ResponseEntity<Page<TransactionDto>> search(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String type,
@@ -55,7 +55,7 @@ public class TransactionController {
 
     @GetMapping("/pending")
     public ResponseEntity<PendingTransactionsDto> pending(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @RequestParam(required = false, defaultValue = "7") int upcomingDays) {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Kolkata"));
         return ResponseEntity.ok(transactionService.pending(userId, today, upcomingDays));
@@ -63,14 +63,14 @@ public class TransactionController {
 
     @PostMapping
     public ResponseEntity<TransactionDto> create(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @Valid @RequestBody CreateTransactionRequest req) {
         return ResponseEntity.ok(transactionService.create(userId, req));
     }
 
     @PatchMapping("/{id}")
     public ResponseEntity<TransactionDto> update(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateTransactionRequest req) {
         return ResponseEntity.ok(transactionService.update(id, userId, req));
@@ -78,7 +78,7 @@ public class TransactionController {
 
     @PostMapping("/{id}/confirm")
     public ResponseEntity<TransactionDto> confirm(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id,
             @Valid @RequestBody ConfirmTransactionRequest req) {
         return ResponseEntity.ok(transactionService.confirm(id, userId, req));
@@ -86,7 +86,7 @@ public class TransactionController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id) {
         transactionService.delete(id, userId);
         return ResponseEntity.noContent().build();

@@ -64,6 +64,13 @@ public class UserService {
                 .setParameter("uid", userId).executeUpdate();
         em.createQuery("DELETE FROM com.fintrack.auth.PasswordResetTokenEntity p WHERE p.userId = :uid")
                 .setParameter("uid", userId).executeUpdate();
+        em.createQuery("DELETE FROM com.fintrack.currency.ExchangeRateEntity x WHERE x.userId = :uid")
+                .setParameter("uid", userId).executeUpdate();
+        em.createQuery("DELETE FROM com.fintrack.household.HouseholdMemberEntity hm "
+                        + "WHERE hm.ownerUserId = :uid OR hm.memberUserId = :uid")
+                .setParameter("uid", userId).executeUpdate();
+        em.createQuery("DELETE FROM com.fintrack.household.HouseholdInviteEntity hi WHERE hi.ownerUserId = :uid")
+                .setParameter("uid", userId).executeUpdate();
 
         users.delete(user);
     }

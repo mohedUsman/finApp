@@ -3,7 +3,7 @@ package com.fintrack.category;
 import com.fintrack.category.dto.CategoryDto;
 import com.fintrack.category.dto.CreateCategoryRequest;
 import com.fintrack.category.dto.UpdateCategoryRequest;
-import com.fintrack.security.CurrentUser;
+import com.fintrack.security.DataOwner;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,7 +23,7 @@ public class CategoryController {
 
     @GetMapping
     public ResponseEntity<List<CategoryDto>> list(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @RequestParam(required = false) String type,
             @RequestParam(defaultValue = "false") boolean includeInactive) {
         return ResponseEntity.ok(categoryService.list(userId, type, includeInactive));
@@ -31,14 +31,14 @@ public class CategoryController {
 
     @PostMapping
     public ResponseEntity<CategoryDto> create(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @Valid @RequestBody CreateCategoryRequest req) {
         return ResponseEntity.ok(categoryService.create(userId, req));
     }
 
     @PatchMapping("/{id}")
     public ResponseEntity<CategoryDto> update(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateCategoryRequest req) {
         return ResponseEntity.ok(categoryService.update(id, userId, req));
@@ -46,7 +46,7 @@ public class CategoryController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
-            @CurrentUser UUID userId,
+            @DataOwner UUID userId,
             @PathVariable UUID id) {
         categoryService.delete(id, userId);
         return ResponseEntity.noContent().build();

@@ -6,6 +6,7 @@ import { queryClient } from '../../lib/queryClient'
 import { useToast } from '../../shared/ToastContext'
 import { useAuth } from '../../auth/AuthContext'
 import { CURRENCIES } from '../../lib/currencies'
+import HouseholdSection from './HouseholdSection'
 
 export default function SettingsPage() {
   const { user, setUser } = useAuth()
@@ -144,6 +145,8 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      <HouseholdSection />
     </div>
   )
 }
