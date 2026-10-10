@@ -7,6 +7,7 @@ import api from '../../lib/apiClient'
 import { queryClient } from '../../lib/queryClient'
 import { todayISO } from '../../lib/format'
 import { useToast } from '../../shared/ToastContext'
+import { checkBudgetAlert } from '../../lib/budgetAlert'
 
 const schema = z.object({
   type: z.enum(['INCOME', 'EXPENSE']),
@@ -121,6 +122,10 @@ export default function TransactionForm({ tx, onDone }) {
       toast.success(isEdit ? 'Transaction updated' : 'Transaction added')
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['report'] })
+
+      if (variables.type === 'EXPENSE' && variables.status === 'ACTUAL') {
+        checkBudgetAlert(variables.categoryId, toast)
+      }
 
       if (!isEdit) writeLastCategory(variables.type, variables.categoryId)
 

@@ -5,6 +5,7 @@ import { UploadCloud, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import api from '../../lib/apiClient'
 import { queryClient } from '../../lib/queryClient'
 import { useToast } from '../../shared/ToastContext'
+import { checkBudgetAlert } from '../../lib/budgetAlert'
 
 function toIsoDate(raw) {
   if (raw == null || raw === '') return null
@@ -137,6 +138,11 @@ export default function CsvImportModal({ onDone }) {
     queryClient.invalidateQueries({ queryKey: ['report'] })
     if (fail === 0) toast.success(`Imported ${ok} transaction${ok === 1 ? '' : 's'}`)
     else toast.error(`Imported ${ok}, ${fail} failed`)
+
+    const expenseCategoryIds = [...new Set(
+      valid.filter(r => r.payload.type === 'EXPENSE' && r.payload.status === 'ACTUAL').map(r => r.payload.categoryId)
+    )]
+    expenseCategoryIds.forEach(id => checkBudgetAlert(id, toast))
   }
 
   const validCount = rows?.filter(r => r.payload).length ?? 0

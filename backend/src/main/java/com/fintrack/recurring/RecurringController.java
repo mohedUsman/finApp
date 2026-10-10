@@ -2,6 +2,7 @@ package com.fintrack.recurring;
 
 import com.fintrack.recurring.dto.CreateRecurringRuleRequest;
 import com.fintrack.recurring.dto.GenerateResult;
+import com.fintrack.recurring.dto.PreviewRequest;
 import com.fintrack.recurring.dto.RecurringRuleDto;
 import com.fintrack.recurring.dto.UpdateRecurringRuleRequest;
 import com.fintrack.security.CurrentUser;
@@ -50,6 +51,14 @@ public class RecurringController {
             @PathVariable UUID id) {
         recurringRuleService.delete(id, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/recurring-rules/preview")
+    public ResponseEntity<List<LocalDate>> preview(
+            @CurrentUser UUID userId,
+            @Valid @RequestBody PreviewRequest req) {
+        return ResponseEntity.ok(recurringRuleService.previewOccurrences(
+                req.scheduleType(), req.scheduleConfig(), req.startDate(), req.endDate(), 5));
     }
 
     @PostMapping("/recurring/generate")

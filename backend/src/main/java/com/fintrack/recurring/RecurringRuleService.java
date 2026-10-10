@@ -157,6 +157,19 @@ public class RecurringRuleService {
         return new GenerateResult(generated, skipped, advanced);
     }
 
+    /** Upcoming occurrence dates for a not-yet-saved schedule, for preview before committing. */
+    public List<LocalDate> previewOccurrences(String scheduleType, String scheduleConfig,
+                                               LocalDate startDate, LocalDate endDate, int count) {
+        validateScheduleConfig(scheduleType, scheduleConfig);
+        List<LocalDate> occurrences = new java.util.ArrayList<>();
+        LocalDate current = computeFirstRunDate(scheduleType, scheduleConfig, startDate);
+        while (occurrences.size() < count && (endDate == null || !current.isAfter(endDate))) {
+            occurrences.add(current);
+            current = nextOccurrence(current, scheduleType, scheduleConfig);
+        }
+        return occurrences;
+    }
+
     private LocalDate computeFirstRunDate(String scheduleType, String scheduleConfig, LocalDate startDate) {
         try {
             JsonNode config = objectMapper.readTree(scheduleConfig);

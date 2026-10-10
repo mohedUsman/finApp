@@ -81,6 +81,21 @@ public class ReportingService {
                 months, byCat, totalVariance);
     }
 
+    @Transactional(readOnly = true)
+    public RangeReportResponse range(UUID userId, LocalDate from, LocalDate to) {
+        long actualIncome = sumActual(userId, "INCOME", from, to);
+        long actualExpense = sumActual(userId, "EXPENSE", from, to);
+        long expectedIncome = sumExpected(userId, "INCOME", from, to);
+        long expectedExpense = sumExpected(userId, "EXPENSE", from, to);
+
+        List<CategoryTotalDto> byCategory = categoryBreakdown(userId, from, to);
+        List<DailyTrendDto> dailyActual = dailyActualTrend(userId, from, to);
+        long totalVariance = byCategory.stream().mapToLong(CategoryTotalDto::varianceMinor).sum();
+
+        return new RangeReportResponse(from, to, actualIncome, actualExpense, expectedIncome, expectedExpense,
+                actualIncome - actualExpense, expectedIncome - expectedExpense, byCategory, dailyActual, totalVariance);
+    }
+
     private long sumActual(UUID userId, String type, LocalDate start, LocalDate end) {
         String sql = "SELECT COALESCE(SUM(actual_amount_minor), 0) FROM transactions " +
                 "WHERE user_id = :uid AND type = :type AND status = 'ACTUAL' " +

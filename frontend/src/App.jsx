@@ -10,6 +10,9 @@ import CategoriesPage from './features/categories/CategoriesPage'
 import RecurringPage from './features/recurring/RecurringPage'
 import QuarterlyPage from './features/reports/QuarterlyPage'
 import NetWorthPage from './features/networth/NetWorthPage'
+import SavingsGoalsPage from './features/goals/SavingsGoalsPage'
+import SearchPage from './features/transactions/SearchPage'
+import RangeReportPage from './features/reports/RangeReportPage'
 
 function App() {
   const { loading } = useAuth()
@@ -39,6 +42,9 @@ function App() {
         <Route path="/recurring" element={<RecurringPage />} />
         <Route path="/quarterly" element={<QuarterlyPage />} />
         <Route path="/networth" element={<NetWorthPage />} />
+        <Route path="/savings-goals" element={<SavingsGoalsPage />} />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/reports/range" element={<RangeReportPage />} />
       </Route>
     </Routes>
   )

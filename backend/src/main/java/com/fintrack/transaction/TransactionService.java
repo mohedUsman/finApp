@@ -34,6 +34,14 @@ public class TransactionService {
                 .map(t -> toDto(t, resolveCategoryName(t.getCategoryId())));
     }
 
+    /** Global search, not scoped to a single month: note text plus amount range. */
+    public Page<TransactionDto> search(UUID userId, LocalDate from, LocalDate to, String type,
+                                        UUID categoryId, String status, String note,
+                                        Long minAmount, Long maxAmount, Pageable pageable) {
+        return transactions.search(userId, from, to, type, categoryId, status, note, minAmount, maxAmount, pageable)
+                .map(t -> toDto(t, resolveCategoryName(t.getCategoryId())));
+    }
+
     /**
      * The user's action list: planned transactions that are overdue (date
      * passed, never confirmed) and those coming due shortly.

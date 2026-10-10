@@ -6,6 +6,7 @@ import api from '../../lib/apiClient'
 import { queryClient } from '../../lib/queryClient'
 import { useToast } from '../../shared/ToastContext'
 import { formatCurrency, formatDate } from '../../lib/format'
+import { checkBudgetAlert } from '../../lib/budgetAlert'
 
 const schema = z.object({
   actualAmountMinor: z.coerce.number().min(0),
@@ -35,6 +36,7 @@ export default function ConfirmForm({ tx, onDone }) {
       toast.success('Transaction confirmed')
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
       queryClient.invalidateQueries({ queryKey: ['report'] })
+      if (tx.type === 'EXPENSE') checkBudgetAlert(tx.categoryId, toast)
       onDone()
     },
     onError: err => toast.error(err.response?.data?.message ?? 'Confirm failed'),

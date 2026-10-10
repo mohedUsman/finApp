@@ -37,6 +37,22 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.list(userId, from, to, type, categoryId, status, pageable));
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<Page<TransactionDto>> search(
+            @CurrentUser UUID userId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String note,
+            @RequestParam(required = false) Long minAmount,
+            @RequestParam(required = false) Long maxAmount,
+            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(transactionService.search(userId, from, to, type, categoryId, status,
+                note, minAmount, maxAmount, pageable));
+    }
+
     @GetMapping("/pending")
     public ResponseEntity<PendingTransactionsDto> pending(
             @CurrentUser UUID userId,

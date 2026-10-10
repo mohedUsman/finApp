@@ -15,6 +15,7 @@ export function ToastProvider({ children }) {
   const toast = {
     success: msg => addToast(msg, 'success'),
     error: msg => addToast(msg, 'error'),
+    warning: msg => addToast(msg, 'warning'),
   }
 
   return (
@@ -27,6 +28,8 @@ export function ToastProvider({ children }) {
             className={`px-4 py-3 rounded-lg text-sm font-medium shadow-lg transition-all ${
               t.type === 'success'
                 ? 'bg-emerald-600 text-white'
+                : t.type === 'warning'
+                ? 'bg-amber-600 text-white'
                 : 'bg-red-600 text-white'
             }`}
           >

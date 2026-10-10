@@ -35,6 +35,31 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
             Pageable pageable);
 
     /**
+     * Global search across all months — note text plus optional amount range,
+     * matched against whichever amount column is populated (expected or actual).
+     */
+    @Query("SELECT t FROM TransactionEntity t WHERE t.userId = :userId " +
+           "AND (:type IS NULL OR t.type = :type) " +
+           "AND (:status IS NULL OR t.status = :status) " +
+           "AND (:categoryId IS NULL OR t.categoryId = :categoryId) " +
+           "AND (:from IS NULL OR t.actualDate >= :from OR t.expectedDate >= :from) " +
+           "AND (:to IS NULL OR t.actualDate <= :to OR t.expectedDate <= :to) " +
+           "AND (:note IS NULL OR LOWER(t.note) LIKE LOWER(CONCAT('%', :note, '%'))) " +
+           "AND (:minAmount IS NULL OR COALESCE(t.actualAmountMinor, t.expectedAmountMinor, 0) >= :minAmount) " +
+           "AND (:maxAmount IS NULL OR COALESCE(t.actualAmountMinor, t.expectedAmountMinor, 0) <= :maxAmount)")
+    Page<TransactionEntity> search(
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("type") String type,
+            @Param("categoryId") UUID categoryId,
+            @Param("status") String status,
+            @Param("note") String note,
+            @Param("minAmount") Long minAmount,
+            @Param("maxAmount") Long maxAmount,
+            Pageable pageable);
+
+    /**
      * Planned transactions whose date has passed but were never confirmed —
      * the user's "did I actually pay this?" list.
      *
